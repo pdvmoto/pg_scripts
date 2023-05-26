@@ -1,0 +1,11 @@
+
+
+even kort voor de standup: 
+ - PB : bezig met testen bastion-vervanging door "awsume", nog steeds.
+ - PB : om 0830 het 3-maandelijks (?) overleg met edwin corstanje, ik maak notities
+ - TK : bezig met laatste 2 pb-basebackups (replicas) 
+ - TK : lopend ticket 2061: vervanging archivering event_history
+ - TK : checking overige sequences. lastiger dan gedacht. dependencies niet altijd duidelijk.
+
+
+ 

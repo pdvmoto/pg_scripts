@@ -1,3 +1,7 @@
 
-select 'server: ' || inet_server_addr() as addr  
-    ,  'port: ' || inet_server_port() as port; 
+
+select datname from pg_database ; 
+
+\! hostname 
+
+select current_database(), version() ; 
