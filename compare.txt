@@ -1,0 +1,19 @@
+/*
+comparision of index-hash, and index-asc.
+
+
+take a long table, 40K records ? 
+
+do a select of a range, id between 200 and 400, or name like Smith%
+
+
+on hash-index: that will give random reads.
+on asc pk-idex taht will give less reads ??
+on random index name.. too muich read
+on asc-idx-name: less reads ? 
+
+bonus:
+ - use define :x to explain
+
+*/
+
