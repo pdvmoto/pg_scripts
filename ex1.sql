@@ -7,44 +7,45 @@
 --  hence, even empty tables will take more time if many tablets
 
  
-drop table t1;
-create table t1 ( id bigint primary key
+drop table e1;
+create table e1 ( id bigint primary key
                 , payload text ) 
 split into 1 tablets ;
 
 
-insert into t1 
+insert into e1 
 select                   row_number() over ()       as id
      , fnNumberToWords ( row_number() over ()  )    as payload
 from pg_tables limit 1 ;
 
-                          select * from t1 ; 
-explain ( analyze, dist ) select * from t1 ;
+                          select * from e1 ; 
+explain ( analyze, dist ) select * from e1 ;
 
-  drop table t2 ; 
-create table t2 ( id bigint primary key
+  drop table e2 ; 
+create table e2 ( id bigint primary key
                 , payload text ) 
 split into 2 tablets ;
 
 
-insert into t2 
+insert into e2 
 select                   row_number() over ()       as id
      , fnNumberToWords ( row_number() over ()  )    as payload
 from pg_tables limit 1 ;
 
-                          select * from t2 ; 
-explain ( analyze, dist ) select * from t2 ;
+                          select * from e2 ; 
+explain ( analyze, dist ) select * from e2 ;
 
-  drop table t8 ; 
-create table t8 ( id bigint primary key
+  drop table e8 ; 
+create table e8 ( id bigint primary key
                 , payload text ) 
 split into 8 tablets ;
 
 
-insert into t8 
+insert into e8 
 select                   row_number() over ()       as id
      , fnNumberToWords ( row_number() over ()  )    as payload
 from pg_tables limit 1 ;
 
-                          select * from t8 ; 
-explain ( analyze, dist ) select * from t8 ;
+                          select * from e8 ; 
+explain ( analyze, dist ) select * from e8 ;
+
