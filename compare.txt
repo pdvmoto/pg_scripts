@@ -1,11 +1,10 @@
 /*
-comparision of index-hash, and index-asc.
 
+1. comparision of index-hash, and index-asc.
 
 take a long table, 40K records ? 
 
 do a select of a range, id between 200 and 400, or name like Smith%
-
 
 on hash-index: that will give random reads.
 on asc pk-idex taht will give less reads ??
@@ -15,5 +14,16 @@ on asc-idx-name: less reads ?
 bonus:
  - use define :x to explain
 
+2. sessions, how to observe logons + activities.
+pg_stat_activity
+
+3. investigate pg/plsql
+
+4. investigare pg_stat  (why didnt anyone create a repository yet)
+
 */
+
+
+
+
 
