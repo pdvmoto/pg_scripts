@@ -123,19 +123,22 @@ select * from watches where serial_num like '%2023012345%' ;
 
 select serial_num
 , serial_num <-> '20230' distance
-from watches where serial_num like '%20230%' 
+from watches where serial_num like '%2023012345%' 
 order by 2 ;
 
 -- show some of the workings
 \echo ' ' 
 \echo ' ' 
 
+/*  error here.. what about pg proper ? */
 select serial_num
 , serial_num <-> '20230' distance
 , show_trgm ( serial_num ) 
-from watches where serial_num like '%20230%' 
+from watches where serial_num like '%2023012345%' 
 order by 2 ;
 
+
+/* this causes an error ... what about pg proper ? */
 explain (analyze, costs off )
 select *
 from watches where serial_num like '%20230%' ;
@@ -155,6 +158,4 @@ create view watches_sn as
 
 
 \! read -p "EOF here.." abc
-
-
 
