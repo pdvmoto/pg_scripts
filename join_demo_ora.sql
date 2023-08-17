@@ -7,6 +7,23 @@ alter table jb drop constraint  jb_ref_ja ;
 drop table ja ; 
 drop table jb ; 
 
+column a_id format 9999
+column a_pay format A10
+column b_id format 9999
+column b_pay format A10
+
+column equal_join format A20
+column inner_join format A20
+
+column left_join format A20
+column right_join format A20
+
+column left_join_b_null format A20
+column right_join_a_null format A20
+
+column full_outer_join format A20
+column full_outer_join_nulls format A22
+
 create table ja ( 
   id          number ( 9,0) 
 , a_payload   varchar2(100) 
@@ -35,7 +52,7 @@ insert into jb values ( 22, 'b=22 ref' ) ;
 
 
 -- conventional oracle join, inner
-select a.id, a.a_payload, b.id, b.b_payload equal_join
+select a.id a_id, a.a_payload a_pay, b.id b_id, b.b_payload equal_join
 from ja a
    , jb b
 where a.id = b.id 

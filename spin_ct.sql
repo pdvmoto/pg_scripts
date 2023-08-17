@@ -3,6 +3,10 @@
 /*
    spin while creating tables, max sec, and max nr tables
 
+
+  mapped volue and no-colocated tables: 20 in 5 sec.
+  mapped volue and colocated tables: 60 in 5 sec. (3x faster)
+  container directory and no-colocated tables: .. in  5 sec.
 */ 
 
 -- the pg, block version
@@ -10,11 +14,11 @@
 DO $$
   DECLARE
    dt_starttime		timestamp ; 
-   i_counter     	integer := 0 ;
-   n_sec         	integer := 2 ; 
+   i_counter     	integer := 1 ;
+   n_sec         	integer := 5 ; 
    n_per_sec 		  real ; 
    txt_tbl1       text := 'create table ' ; 
-   txt_tbl2       text := ' ( id bigint, payload text ) ' ; 
+   txt_tbl2       text := ' ( id bigint, payload text ) ;' ; 
    txt_tblname    text ; 
    txt_sql        text ;
 BEGIN
@@ -47,4 +51,19 @@ BEGIN
 END
 $$;
 
+-- assume at least 1-5 are created.. 
+-- assume t (from demo_part) exist, 
+-- and put data in
+
+\timing on
+
+insert into ds1 select id, payload from t ;
+insert into ds2 select id, payload from t ;
+insert into ds3 select id, payload from t ;
+insert into ds4 select id, payload from t ;
+insert into ds5 select id, payload from t ;
+
+\timing off
+
+\NOTICE note the nr of tables and the timing...
 

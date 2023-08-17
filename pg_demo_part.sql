@@ -35,8 +35,6 @@ create table pt
 )
 partition by range ( id ) ;
 
-alter table pt add constraint pt_pk primary key ( id ) ;
-
 \set ECHO none
 
 \echo .
@@ -78,9 +76,8 @@ create table t
 , dt                timestamp         -- some date, case we want history stuff
 , payload           varchar ( 200 )   -- some text 
 , filler            varchar ( 750 )   -- some data to create 1K recordsize
+, constraint t_pk primary key ( id )
 );
-
-alter table t add constraint t_pk primary key ( id ) ;
 
 \set ECHO none
 
