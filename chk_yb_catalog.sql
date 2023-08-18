@@ -115,3 +115,8 @@ create table x_timing (
 , comment text )
 ;
 
+insert into x_timing values ( 1, 8, 6, 'qry desc' ) ;
+
+
+create table region1 ( region_id smallint primary key, region_description bpchar ) split into 1 tablets ;
+
