@@ -85,6 +85,8 @@ where 1=1
 and c.relkind in ( 'r', 'i' ) 
 ); 
 
+select oid, relname, num_tablets from ybx_tblinfo order by relname;
+
 --more.., not worked..
 with c as ( select c.oid as oid
 from pg_class c) 
@@ -103,4 +105,13 @@ create table ybx_tt (
 
 create view ybx_tablet
 as ( select * from ybx_tt) ;
+
+-- when timing is needed:
+create table x_timing ( 
+  id bigint primary key
+, time_ms bigint
+, stor_calls bigint
+, descr text
+, comment text )
+;
 
