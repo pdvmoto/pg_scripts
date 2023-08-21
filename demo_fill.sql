@@ -44,7 +44,7 @@ create table t
 \set ECHO all
 
 with s as ( select nextval('t_seq') as id 
-              from ( select generate_series ( 0, 1 ) ) as sub 
+              from ( select generate_series ( 0, 0 ) ) as sub 
           ) 
 insert into t
 select  
@@ -101,7 +101,7 @@ $body$
 language plpgsql;
 
 -- test, and verify count
-select f_fill_t ( 1001 ) ;
+select f_fill_t ( 1 ) ;
 
 select count (*) from t ; 
 

@@ -3,13 +3,15 @@
 
 usage: run this on a new db, to get some tooling
 
- --------------- */ 
+ ---------------  
 
 \echo to generate spoken numbers
 \i n2words.sql
 
 \echo functions to count 
 \i mk_fcnt.sql
+
+*/ 
 
 \echo view to inspect yb-properties of tables
 create or replace view ybx_tblinfo as (
