@@ -23,7 +23,7 @@ grant all on schema     scott       to scott with grant option ;
 
 \i n2words.sql
 
-\i cnt.sql
+\i mk_fcnt.sql
 
 
 

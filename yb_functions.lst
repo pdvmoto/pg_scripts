@@ -1,0 +1,30 @@
+                          fcall                           |                        more                        
+----------------------------------------------------------+----------------------------------------------------
+ select yb_catalog_version() ;                            |  as yb_catalog_version ;
+ select yb_get_current_transaction_priority() ;           |  as yb_get_current_transaction_priority ;
+ select yb_get_effective_transaction_isolation_level() ;  |  as yb_get_effective_transaction_isolation_level ;
+ select yb_get_range_split_clause() ;                     |  as yb_get_range_split_clause ;
+ select yb_getrusage() ;                                  |  as yb_getrusage ;
+ select yb_hash_code() ;                                  |  as yb_hash_code ;
+ select yb_heap_stats() ;                                 |  as yb_heap_stats ;
+ select yb_increment_all_db_catalog_versions() ;          |  as yb_increment_all_db_catalog_versions ;
+ select yb_is_database_colocated() ;                      |  as yb_is_database_colocated ;
+ select yb_is_local_table() ;                             |  as yb_is_local_table ;
+ select yb_mem_usage() ;                                  |  as yb_mem_usage ;
+ select yb_mem_usage_kb() ;                               |  as yb_mem_usage_kb ;
+ select yb_mem_usage_sql() ;                              |  as yb_mem_usage_sql ;
+ select yb_mem_usage_sql_b() ;                            |  as yb_mem_usage_sql_b ;
+ select yb_mem_usage_sql_kb() ;                           |  as yb_mem_usage_sql_kb ;
+ select yb_pg_stat_get_backend_allocated_mem_bytes() ;    |  as yb_pg_stat_get_backend_allocated_mem_bytes ;
+ select yb_pg_stat_get_backend_catalog_version() ;        |  as yb_pg_stat_get_backend_catalog_version ;
+ select yb_pg_stat_get_backend_rss_mem_bytes() ;          |  as yb_pg_stat_get_backend_rss_mem_bytes ;
+ select yb_pg_stat_get_queries() ;                        |  as yb_pg_stat_get_queries ;
+ select yb_server_cloud() ;                               |  as yb_server_cloud ;
+ select yb_server_region() ;                              |  as yb_server_region ;
+ select yb_server_zone() ;                                |  as yb_server_zone ;
+ select yb_servers() ;                                    |  as yb_servers ;
+ select yb_table_properties() ;                           |  as yb_table_properties ;
+ select ybcinhandler() ;                                  |  as ybcinhandler ;
+ select ybginhandler() ;                                  |  as ybginhandler ;
+(26 rows)
+

@@ -85,6 +85,8 @@ where 1=1
 and c.relkind in ( 'r', 'i' ) 
 ); 
 
+select oid, relname, num_tablets from ybx_tblinfo order by relname;
+
 --more.., not worked..
 with c as ( select c.oid as oid
 from pg_class c) 
@@ -131,3 +133,17 @@ create table ybx_lm_memusage (
 , node_id
 create table 
  
+-- when timing is needed:
+create table x_timing ( 
+  id bigint primary key
+, time_ms bigint
+, stor_calls bigint
+, descr text
+, comment text )
+;
+
+insert into x_timing values ( 1, 8, 6, 'qry desc' ) ;
+
+
+create table region1 ( region_id smallint primary key, region_description bpchar ) split into 1 tablets ;
+
