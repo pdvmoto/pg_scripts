@@ -106,6 +106,33 @@ create table ybx_tt (
 create view ybx_tablet
 as ( select * from ybx_tt) ;
 
+-- lm: load-monitor: snapshot, nodes, tables, tablets, leaders..
+-- concept: take-copy, we worry about diff later (as does prometheus, nagios etc..)
+-- also, seemingly: mem-usage, bcse functios available
+
+drop table ybx_nodes ;
+drop table ybx_lm_memusage ;
+drop table ybx_lm_snapshot ;
+
+create table ybx_nodes as select * from yb_servers() ;
+
+#  the parent of them all, just a snap_id
+create table ybx_lm_snapshot ( 
+  snap_id bigint primary key  
+, dt timestamp 
+, payload text 
+);
+
+create table ybx_lm_nodes (
+  snap_id bigint 
+, node_id bigint 
+, node_uuid
+
+create table ybx_lm_memusage (
+  snap_id bigint
+, node_id
+create table 
+ 
 -- when timing is needed:
 create table x_timing ( 
   id bigint primary key
