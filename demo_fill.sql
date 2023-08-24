@@ -33,8 +33,8 @@ create table t
 , amount            numeric ( 10,2 )  -- supposedly some amount of money.
 , dt                timestamp         -- some date, case we want history stuff
 , payload           varchar ( 200 )   -- some text , can be spoken word
-, filler            varchar ( 750 )   -- some data to create 1K recordsize
-) ;
+, filler            varchar ( 750 )  -- some data to create 1K recordsize
+) split into 1 tablets ;
 
 \set ECHO none
 
@@ -108,3 +108,45 @@ select count (*) from t ;
 \set ECHO none
 
 \echo 'Table t and funtion f_fill_t ( nr bigint ) are ready to use..'
+
+/*  --- add volume to table... */
+
+
+create or replace function
+f_fill_t_rndm ( nr_to_add bigint ) returns bigint
+as
+$body$
+declare
+  result     integer;
+  query      varchar;
+  txt_filler text ;  -- use this to insert Random-Garbage to fill
+begin
+
+  --  later: add filler = 
+  txt_filler := f_rndmstr ( 740 ) ;
+
+  with s as ( select nextval('t_seq') as id
+                from ( select generate_series ( 1, nr_to_add ) ) as sub
+            )
+  insert into t
+  select
+    s.id                                     as id
+  , case mod ( s.id+1, 10000 )  when 0 then 'Y' else 'N' end  as active
+  , mod ( s.id, 10000 ) / 100                as amount
+  , ( current_date - s.id::int  )            as dt   /* cant use bigint??i  */
+  , rpad ( fnNumberToWords ( s.id ), 198)    as payload
+  , txt_filler                               as  filler
+  from s
+  ;
+
+  /* check for exception or results here... later */ 
+
+  return ( nr_to_add ) ;
+
+end;
+$body$
+language plpgsql;
+
+
+select  f_fill_t_rndm ( 20 ) ;
+
