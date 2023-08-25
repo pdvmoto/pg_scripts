@@ -243,6 +243,3 @@ references ybx_host ( hostname ) ;
 notes
 mviews.. : also hold tablets.
 replicats are the physical entieies.
-
-
-
