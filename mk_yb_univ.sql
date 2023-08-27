@@ -1,7 +1,18 @@
 
 -- mk_yb_universe: define tables + constraints for yugabyte entities
-
--- define just logical entities for ybx, use real keys for the moment --
+--
+-- so far, I found the following entities in a yb-universe
+--
+-- Universe
+--  Cluster
+--    hostnode (hardware, vm or container)
+--      master (meta-data and coordinating processes, running on node)
+--      tserver (data-processing, running on node)
+--    table : link the uuid to the pg-oid.
+--    tablet : storage-object for table-data.
+--      tablet_replica: on of the RF-nr of copies of a tablet, located on tserver
+--    table_tablet_replica: n:m relation between tablets and tables.
+--
 
 -- universe
 create table ybx_univrs  (
@@ -13,7 +24,7 @@ create table ybx_univrs  (
 -- ybuniv='yb-admin -master_addresses $MASTERS get_universe_config '
 -- note: cloud etc.. can be multiple-properties, check nodes
 
--- cluster: not defined yet.
+-- cluster: defined, but not detailed. relevant if xCluster is used
 create table ybx_clustr ( 
   cluster_nm      text primary key
 , univrs_uuid     text  /* fk */
@@ -31,14 +42,13 @@ create table ybx_hstnde (
 , region      text
 , zone        text
 , public_ip   text
-, num_connections bigint  /* bcse yb_servers() has this */
-, constraint ybx_hostname_unq unique ( hostname ) 
+, constraint ybx_hostname_unq unique ( hostname )  
 ) ; 
-
--- pickup from "host" in yb_servers() ? or from yb-admin some-list.. ? 
+-- pickup from "host" in yb_servers()? or from yb-admin .. ? 
 -- question: can ip+hostname change over time? what impact?
 -- question: can hosts be in cluster without running a master or tserver ?
 
+-- master, running software to coordinate, and keep meta-data
 create table ybx_master ( 
   uuid              text   primary key
 , rpc_host          text,  rpc_port     int
@@ -48,8 +58,8 @@ create table ybx_master (
 ) ; 
 -- pick up from :
 -- yb-admin -master_addresses $MASTERS list_all_masters
--- yb-admin -master_addresses $MASTERS list_all_tablets_servers
 
+-- tserver, tablet-servers
 create table ybx_tservr (
   uuid              text    primary key
 , rpc_host          text
@@ -85,9 +95,9 @@ create table ybx_tablet (
 , range       text              /* partition split info */
 ); 
 -- pick up tablet info with:
--- yb-admin  -master_addresses node1:7100 list_tablets ysql.yugabyte t1   
+-- yb-admin  -master_addresses $MASTERS list_tablets ysql.yugabyte t1   
 
--- tablet-tserver-replicat: the three copies of a tablet
+-- tablet-tserver-replicat: the (RF, three) copies of a tablet
 create table ybx_ttsrep ( 
   tservr_uuid   text    /* foreign key to tserver, the hosting node */
 , tablet_uuid   text    /* parent tablet, also link to table */
@@ -103,7 +113,9 @@ create table ybx_tbltbt (
 , tblet_uuid         text
 , constraint ybx_tbltbt_pk primary key ( table_uuid, tblet_uuid )
 );
--- info to be derived from ... list_tablet for table?
+-- info to be derived from ... yb-admin list_tablets for all tables?
+-- yb-admin  -master_addresses $MASTERS list_tablets ysql.yugabyte t1     
+-- yb-admin  -master_addresses $MASTERS list_tablets ycql.system t1     
 
 
 -- now define the foreign keys..
