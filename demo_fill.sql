@@ -147,6 +147,43 @@ end;
 $body$
 language plpgsql;
 
+-- just timestamp records, typically just 1 ---------------
+create or replace function
+f_fill_t_now ( nr_to_add bigint ) returns bigint
+as
+$body$
+declare
+  result     integer;
+  query      varchar;
+  txt_filler text := '' ;  -- use this to insert Random-Garbage to fill
+begin
 
+  --  later: add filler = 
+  -- txt_filler := f_rndmstr ( 740 ) ;
+
+  with s as ( select nextval('t_seq') as id
+                from ( select generate_series ( 1, nr_to_add ) ) as sub
+            )
+  insert into t
+  select
+    s.id                                     as id
+  , case mod ( s.id+1, 10000 )  when 0 then 'Y' else 'N' end  as active
+  , mod ( s.id, 10000 ) / 100                as amount
+  , now ()                                   as dt   /* timestamp, ms  */
+  , rpad ( fnNumberToWords ( s.id ), 198)    as payload
+  , txt_filler                               as  filler
+  from s
+  ;
+
+  /* check for exception or results here... later */ 
+
+  return ( nr_to_add ) ;
+
+end;
+$body$
+language plpgsql;
+
+select  f_fill_t      ( 20 ) ;
 select  f_fill_t_rndm ( 20 ) ;
+select  f_fill_t_now  ( 20 ) ;
 
