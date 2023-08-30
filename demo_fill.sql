@@ -34,7 +34,7 @@ create table t
 , dt                timestamp         -- some date, case we want history stuff
 , payload           varchar ( 200 )   -- some text , can be spoken word
 , filler            varchar ( 750 )  -- some data to create 1K recordsize
-) /* split into 1 tablets */  ;
+) split into 1 tablets  ;
 
 \set ECHO none
 
@@ -158,11 +158,11 @@ declare
   txt_filler text := '' ;  -- use this to insert Random-Garbage to fill
 begin
 
-  --  later: add filler = 
-  -- txt_filler := f_rndmstr ( 740 ) ;
-
   with s as ( select nextval('t_seq') as id
+                   , pgs.setting      as hostadr
                 from ( select generate_series ( 1, nr_to_add ) ) as sub
+                   , pg_settings pgs
+                where pgs.name = 'listen_addresses'
             )
   insert into t
   select
@@ -171,7 +171,8 @@ begin
   , mod ( s.id, 10000 ) / 100                as amount
   , now ()                                   as dt   /* timestamp, ms  */
   , rpad ( fnNumberToWords ( s.id ), 198)    as payload
-  , txt_filler                               as  filler
+  ,   '{ "client":"clientinfo"' ||  ', " host":"' || s.hostadr || 
+     '"}'                                    as  filler
   from s
   ;
 
