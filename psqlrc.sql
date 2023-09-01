@@ -6,6 +6,12 @@
 
 -- set prompt  to know "where we are"
 -- \set PROMPT1 '%n @ %/%R> '
+--
+-- remember: if date/time is needed: \set PROMPT1 = ' `date +%H:%M:%S`  %n@%m:%/%R%# '
+-- date +%H:%M:%S
+-- select '\set PROMPT1 `date  +%H:%M:%S` '' @ %/ @ '
+-- date is login-time, need to experiment with now() in prompt
+--
 
 -- experiment
 \set PROMPT1 '%n @ %/ @ %m  %R> '

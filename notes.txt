@@ -9,3 +9,26 @@ even kort voor de standup:
 
 
  
+Automated failover for yb-master.
+
+Aim: Keep sufficient master-processes running when yb-masters fail or drop off the network.
+Also reduce the manual work of "change_master_config" needed to provision for a failed yb-master.
+
+Suggestion: keep a list of available master-nodes, 
+on which a replacement yb-master process can start and join the cluster.
+This could be nodes already running tservers in the same rack, 
+or could be dedicated nodes designated to run yb-master processes in same or nearby locations.
+These "masters-in-waiting" could even have a running yb-master (as does the docker-demo containe?).
+
+More background: 
+It seems I can lose, disconnect or kill many (all) of the nodes that only run tserver without losing my database, 
+as tablets get moved around to the remaining nodes.
+But if I lose "quorum" on the (hardcoded?) master-list, my cluster stops.
+Having some failover mechanism for yb-master processes could make my cluster even more resilient?
+
+
+more details: 
+(link to blog with testing master-fails)
+(screenshot of blog)
+
+
