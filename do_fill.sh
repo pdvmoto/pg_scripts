@@ -11,7 +11,7 @@ while true
 do
 
 # ysqlsh -X -h node2  <<EOF
-  ysqlsh -X postgresql://yugabyte@node4:5433,node3:5433,node2:5433,node5:5433,node6:5433,node7:5433?connect_timeout=2 <<EOF
+  ysqlsh -X postgresql://yugabyte@node5:5433,node6:5433,node7:5433?connect_timeout=2 <<EOF
   
     -- \echo $hostnm 
 
@@ -53,7 +53,7 @@ do
 	)
 	select
 	       msecs - LAG  ( msecs, 1 ) OVER w as msec_diff
-	     , id
+	--   , id
 	     , to_char ( dt, 'HH24:MI:SS.MS' )  as timestmp
 	--   , secs, msecs
 	--   , secs -  LAG  (  secs, 1 ) OVER w as sec_diff
