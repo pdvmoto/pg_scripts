@@ -39,10 +39,10 @@ create table ybx_tabl (
 
 create table ybx_tblt (
   tt_uuid text primary key 
-, ts_uuid text   /* leader-ts for this tablet)
+, ts_uuid text   /* leader-ts for this tablet) */
 , range   text   /* later.. */
 , tt_more text   /* store more info later */
-) split ito 1 tablets ; 
+) split into 1 tablets ; 
 -- fill from list_tablets ysql.yugabute t , mind doubles when colocated
 
 -- the m:n relation between tables and tablets.
@@ -82,9 +82,9 @@ where length ( trim(slurp))  > 0 ;
 
 delete from ybx_mast ;
 
-insert into ybx_mast ( muuid, host, port, role )
+insert into ybx_mast ( ms_uuid, host, port, role )
 select 
-  substr ( slurp,   2,  32 )  as muuid
+  substr ( slurp,   2,  32 )  as ms_uuid
 , substr ( slurp,  37,  10 )  as host
 , trim ( substr ( slurp,  50,   5 ))::int  as port
 , substr ( slurp,  79,   8 ) as role
@@ -108,9 +108,9 @@ where length ( trim(slurp))  > 0 ;
  
 delete from ybx_tsrv ;
 
-insert into ybx_tsrv ( tsuuid, host, port, alive )
+insert into ybx_tsrv ( ts_uuid, host, port, alive )
 select 
-  substr ( slurp,   2,  32 )  as tsuuid
+  substr ( slurp,   2,  32 )  as ts_uuid
 , substr ( slurp,  37,  10 )  as host
 , trim ( substr ( slurp,  50,   5 ) )::int  as port
 , trim ( substr ( slurp,  79,   8 ) )       as alive
@@ -138,7 +138,7 @@ from ybx_intf
 where length ( trim(slurp))  > 0 ;
 */
 
-insert into ybx_tbls  ( tb_uuid, db_type, database, tablename, tabletype )
+insert into ybx_tabl  ( tb_uuid, db_type, database, tablename, tabletype )
 select 
   split_part ( slurp, ' ', 4 )  as tb_uuid
 , split_part ( slurp, ' ', 1 )  as db_type
@@ -152,8 +152,8 @@ where length ( trim(slurp))  > 0 ;
 -- assume ybx_tables are "compmlete", and show empty for missing servers..
 
 select  m.host 
-     ,  s.uuid as tsuuid
-     ,  m.muuid as muuid
+     ,  s.uuid as ts_uuid
+     ,  m.ms_uuid as ms_uuid
      ,  m.role
 from ybx_mast m
 left join yb_servers () s on ( s.host = m.host ) 
@@ -176,6 +176,7 @@ delete from ybx_intf ;
 insert into ybx_tblt ( tt_uuid, ts_uuid )
 select substr ( slurp,  1, 32 )  as tt_uuid
      , substr ( slurp, 41, 72 )  as ts_uuid
+     , slurp
 from ybx_intf
 where length ( trim(slurp))  > 0 ;
 
@@ -183,12 +184,12 @@ where length ( trim(slurp))  > 0 ;
 -- -- -- the replicas, link the tablets to the tservers
 delete from ybx_intf ;
 
-\copy ybx_intf from program 'yb-admin -master_addresses $MASTERS list_tablet_servers  c1a07cd006f94d2794010fc60853ce62 | head -n +2 '  ;
+\copy ybx_intf from program 'yb-admin -master_addresses $MASTERS list_tablet_servers  c1a07cd006f94d2794010fc60853ce62 | tail -n +2| expand '  ;
 
 -- verify the tabletreplica to tserver  and the role of the tsrvr
 select
   '['|| substr ( slurp,  1, 32 ) || ']' as ts_uuid
-, '['|| substr ( slurp,  50, 20 ) || ']' as role
+, '['|| substr ( slurp, 65, 20 ) || ']' as role
 from ybx_intf
 where length ( trim ( slurp ) ) > 0  ;
 
