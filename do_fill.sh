@@ -13,8 +13,6 @@ do
 # ysqlsh -X -h node2  <<EOF
   ysqlsh -X postgresql://yugabyte@node5:5433,node6:5433,node7:5433?connect_timeout=2 <<EOF
   
-    -- \echo $hostnm 
-
     \set QUIET on
     \timing off
     \pset footer off
@@ -38,30 +36,23 @@ do
     from s
     ;
 
-    -- select '$hostnm' as clnt_host, setting as srvr_host, now() as date_time
-    -- FROM pg_settings
-    -- WHERE name='listen_addresses';
-    
-
-	with t_seconds as ( select id
-			       , dt
-			       , ( to_char ( dt, 'SSSS' ) )::bigint        as secs
-			       , 1000 * ( to_char ( dt, 'SSSS' ) )::bigint
-				 + to_char ( dt, 'MS' )::int               as msecs
-			       , substr ( filler, 1, 50 )                  as filler
-			    from t
-	)
-	select
-	       msecs - LAG  ( msecs, 1 ) OVER w as msec_diff
-	--   , id
-	     , to_char ( dt, 'HH24:MI:SS.MS' )  as timestmp
-	--   , secs, msecs
-	--   , secs -  LAG  (  secs, 1 ) OVER w as sec_diff
-	     , filler
-	from t_seconds
-	window w as ( order by id )
-	order by id desc
-	limit 1;
+    with t_seconds as ( select id
+               , dt
+               , ( to_char ( dt, 'SSSS' ) )::bigint        as secs
+               , 1000 * ( to_char ( dt, 'SSSS' ) )::bigint
+                  + to_char ( dt, 'MS' )::int              as msecs
+               , substr ( filler, 1, 50 )                  as filler
+            from t
+    )
+    select
+           msecs - LAG  ( msecs, 1 ) OVER w as msec_diff
+    --   , id
+         , to_char ( dt, 'HH24:MI:SS.MS' )  as timestmp
+         , filler
+    from t_seconds
+    window w as ( order by id )
+    order by id desc
+    limit 1;
 
 EOF
 
