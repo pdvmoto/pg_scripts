@@ -235,5 +235,12 @@ program structure for getting the data:
     script to loop over tablets, call ld_yb_ent_3_ttrp $1=tt_uuid
       call script to fetch tablet-replicas.
 
+4. report data on cluster:
+  - busiest tablet + placement on tservers..
+  - busiest tserver + leaders + followers
+  - state of a node / tserver: which leaders affectec, which followers..
+  - placement of a table: nr-tablest, leaders, followers
+
 */
+
 
