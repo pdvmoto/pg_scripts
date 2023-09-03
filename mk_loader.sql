@@ -243,4 +243,60 @@ program structure for getting the data:
 
 */
 
+-- link table to host-ldrs
+create view ybx_tb_ts as
+select tb.tablename, ts.host, ts.ts_uuid
+, count (ts.ts_uuid )  nr_ldr_tablets
+from ybx_tabl tb
+   , ybx_tbtt tbtt
+   , ybx_tblt tt
+   , ybx_tsrv ts
+where tb.tb_uuid = tbtt.tb_uuid
+  and tbtt.tt_uuid = tt.tt_uuid
+  and tt.ts_uuid = ts.ts_uuid
+  group by tb.tablename, ts.host, ts.ts_uuid
+order by tb.tablename, ts.host;
+
+-- overall status of TS: leaders + followers..
+select ts.host, ts.ts_uuid
+, sum ( case when rp.role = 'LEADER'    then 1 else 0 end ) as ldrs
+, sum ( case when rp.role = 'FOLLOWER'  then 1 else 0 end ) as fllwrs
+from ybx_tsrv ts
+   , ybx_ttrp rp
+where ts.ts_uuid = rp.ts_uuid
+group by ts.host, ts.ts_uuid; 
+
+-- ts for 1 table: ldrs and followers
+select tb.db_type, tb.database, tb.tablename, ts.host, ts.ts_uuid
+, sum ( case when rp.role = 'LEADER'    then 1 else 0 end ) as ldrs
+, sum ( case when rp.role = 'FOLLOWER'  then 1 else 0 end ) as fllwrs
+from ybx_tsrv ts
+   , ybx_ttrp rp
+   , ybx_tabl tb
+where ts.ts_uuid = rp.ts_uuid
+  and rp.tt_uuid in ( /* collect all tts for tb from the n:m */ 
+                    select tbtt.tt_uuid from ybx_tbtt tbtt where tbtt.tb_uuid = tb.tb_uuid  
+                    )
+  and tb.tablename = 'ybx_mast'
+group by tb.db_type, tb.database, tb.tablename, ts.host, ts.ts_uuid 
+order by tb.tablename ;
+
+-- original table to host for tt-leaders
+select tb.tablename, ts.host, ts.ts_uuid
+, count (distinct ts.ts_uuid )  nr_ldr_tablets
+/* , (select count (*) from ybx_ttrp rp 
+    where rp.ts_uuid = ts.ts_uuid
+      and rp.tt_uuid = tt.tt_uuid
+      and rp.role = 'FOLLOWER'
+  ) as replc_fllwrs */
+from ybx_tabl tb
+   , ybx_tbtt tbtt
+   , ybx_tblt tt
+   , ybx_tsrv ts
+where tb.tb_uuid = tbtt.tb_uuid
+  and tbtt.tt_uuid = tt.tt_uuid
+  and tt.ts_uuid = ts.ts_uuid
+  group by tb.tablename, ts.host, ts.ts_uuid
+order by tb.tablename, ts.host;
+
 
