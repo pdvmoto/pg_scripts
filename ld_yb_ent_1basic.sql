@@ -2,26 +2,38 @@
 --
 --# ld_yb_ent_1basic.sh: load basic yb-entities into table.
 --
--- note: anomaly at "sys catalog" find out, remove..
+-- todo: 
+--  - so much to verify and to beautify still
+--  - Check the Data ! 
+--  - anomaly at "sys catalog" find out, remove..
 --
 
 \echo ----- about to load yb-entities, metadata --- 
 
-\echo ----- some information to verify ----- 
-\echo .
-\echo You are on host : 
-\! hostname
-\echo         on pwd  : 
-\! pwd
-\echo environment has MASTERS : 
-\! set | grep MASTERS
-\echo environment has tools : 
-\! `which yb-admin'  and `which yugatool`
+\! clear 
 
-
-\! read -p "hit enter if ready to continue... " abc
+\! echo ----- some information to verify -----
+\! echo .
+\! echo "You are on host            : " `hostname`
+\! echo "        on pwd             : " `pwd`
+\! echo .
+\! echo environment has MASTERS ? 
+\! echo ` set | grep MASTERS `
+\! echo .
+\! echo environment has tools ?
+\! echo "    yb-admin               : " `which yb-admin`  
+\! echo "    yugatool               : " `which yugatool` 
+\! echo .
+\! echo .
+\! read -p "hit enter to continue, or control-C to stop..." abc
 
 \echo ----- loading master data from yugatool -----
+
+-- First, create some tables with diff sharding, use those in demo later...
+create table t01 ( id bigint primary key, payload text ) split into  1 tablets ;
+create table t02 ( id bigint primary key, payload text ) split into  2 tablets ;
+create table t04 ( id bigint primary key, payload text ) split into  4 tablets ;
+create table t16 ( id bigint primary key, payload text ) split into 16 tablets ;
 
 -- masters are top-lines, assuming RF=3..
 delete from ybx_intf ;
@@ -115,7 +127,7 @@ select * from ybx_tabl order by tablename ;
 
 \echo ----- 
 \echo .
-\echo Verify data.. 
+\echo Now Verify data.. 
 \echo note: Verify anomaly at sys-catalog?
 \echo .
 \echo ----- simple loading done, -----------
@@ -124,27 +136,6 @@ select * from ybx_tabl order by tablename ;
 \echo .
 
 -- generate calls: (spool to \t \o ld2.out )
---  => select '\! ./ld_yb_ent_2tt.sh ' || tb_uuid || ' ' || db_type||'.'||database|| ' ' || tablename
---       from ybx_tabl;
--- call:  \i ld2.out
---
-
-\! echo ----- some information to verify -----
-\! echo .
-\! echo "You are on host            : " `hostname`
-\! echo "        on pwd             : " `pwd`
-\! echo .
-\! echo environment has MASTERS ? 
-\! echo ` set | grep MASTERS `
-\! echo .
-\! echo environment has tools ?
-\! echo "    yb-admin               : " `which yb-admin`  
-\! echo "    yugatool               : " `which yugatool` 
-\! echo .
-\! echo .....
-\! read -p "hit enter to continue, control-C to stop" abc
-
-
 \t on
 \o ld2.out
 select '\! ./ld_yb_ent_2tt.sh ' || tb_uuid || ' ' || db_type||'.'||database|| ' ' || tablename  from ybx_tabl ;
@@ -165,7 +156,9 @@ select '\! ./ld_yb_ent_3ttrep.sh ' || tt_uuid from ybx_tblt;
 
 \echo .
 \echo ---------- loading from ld2 nd ld3 done... next run some verifications -------
-
-
-
+\echo .
+\echo . When time: add queries and Views to use the data. 
+\echo . Examples in mk_loader.sql, and various scripts
+\echo .
+\echo ---------- Enjoy ! ----------------------
 

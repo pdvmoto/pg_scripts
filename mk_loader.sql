@@ -262,7 +262,7 @@ program structure for getting the data:
 
 */
 
--- create some tables with diff sharding...
+-- create some tables with diff sharding, use those in demo later...
 create table t01 ( id bigint primary key, payload text ) split into  1 tablets ;
 create table t02 ( id bigint primary key, payload text ) split into  2 tablets ;
 create table t04 ( id bigint primary key, payload text ) split into  4 tablets ;
