@@ -1,18 +1,18 @@
 
 /* 
- drop table mast ; 
- drop table tsrv ;
- drop table tabl ;
- drop table tblt ;
- drop table tbtt ;
- drop table ttrp ;
+ drop table ybx_mast ; 
+ drop table ybx_tsrv ;
+ drop table ybx_tabl ;
+ drop table ybx_tblt ;
+ drop table ybx_tbtt ;
+ drop table ybx_ttrp ;
  drop table ybx_intf ;
 */
 
 \set ECHO all
 
-create table if not exists ybx_mast (
-  ms_uuid    text primary key 
+create table ybx_mast (
+  ms_uuid  text primary key 
 , host     text
 , port     int
 , role     text
@@ -61,9 +61,29 @@ create table ybx_ttrp (
 ) split into 1 tablets ;
 -- fill from yb-admin list_tablet_servers per tt_uuid
 
+
+/* keep constraints away during dev-test-debug, but test them 
+
+-- add constraints, just in case
+alter table ybx_tbtt add constraint ybx_tbtt_fk_tb
+foreign key ( tb_uuid ) references ybx_tabl ( tb_uuid ); 
+
+alter table ybx_tbtt add constraint ybx_tbtt_fk_tt
+foreign key ( tt_uuid ) references ybx_tblt ( tt_uuid ); 
+ 
+alter table ybx_tblt add constraint ybx_tblt_fk_ts_ldr
+foreign key ( ts_uuid ) references ybx_tsrv ( ts_uuid ); 
+
+alter table ybx_ttrp add constraint ybx_ttrp_fk_tt
+foreign key ( tt_uuid ) references ybx_tblt ( tt_uuid ); 
+
+alter table ybx_ttrp add constraint ybx_ttrp_fk_ts
+foreign key ( ts_uuid ) references ybx_tsrv ( ts_uuid ); 
+
+*/
+
 -- interface-table, not even a pk... dont want constraints, just passthough
-create table if not exists 
-  ybx_intf ( slurp text ) split into 1 tablets ;
+create table ybx_intf ( slurp text ) split into 1 tablets ;
 
 -- use yugatool: output seems more regular than yb-admin
 
@@ -208,7 +228,7 @@ proof of concept given above..
 
 program structure for getting the data:
 
-0. create all the ybx_tables for this data:  mk_yb_ent_schema
+0. create all the ybx_tables for this data:  mk_yb_ent_0schema
     mast
     tsrv
     tbls
@@ -222,31 +242,39 @@ program structure for getting the data:
 
     Add constraints if possible.
 
-1. read the easy parts: ld_yb_ent_1_basic.sh
+1. read the easy parts: ld_yb_ent_1basic.sql
    mast, tsrv, tbls : straight forward copy-from-programs
 
 2. read all tablets: 
-    script to loop tables, call ld_yb_ent_2_tt $1=tb_uuid
+    script to loop tables, call ld_yb_ent_2tt.sh $1=tb_uuid
       get tables for the table
       insert into tblt (colocate=doubles, where not exist), 
       and into tbtt (n:m)
 	
 3. read ttrp: 
-    script to loop over tablets, call ld_yb_ent_3_ttrp $1=tt_uuid
+    script to loop over tablets, call ld_yb_ent_3ttrp.sh $1=tt_uuid
       call script to fetch tablet-replicas.
 
 4. report data on cluster:
-  - busiest tablet + placement on tservers..
+  - placement of a table: nr-of-tablets, leaders, followers
   - busiest tserver + leaders + followers
-  - state of a node / tserver: which leaders affectec, which followers..
-  - placement of a table: nr-tablest, leaders, followers
+  - state of a node or server: which leaders affected, which followers..
 
 */
 
+-- create some tables with diff sharding...
+create table t01 ( id bigint primary key, payload text ) split into  1 tablets ;
+create table t02 ( id bigint primary key, payload text ) split into  2 tablets ;
+create table t04 ( id bigint primary key, payload text ) split into  4 tablets ;
+create table t16 ( id bigint primary key, payload text ) split into 16 tablets ;
+
 -- link table to host-ldrs
+-- use this to show :
+--  - tables on a host, e.g. when host is in trouble
+--  - host under a table, e.g. show geo-location of a table, or impact of removing host
 create view ybx_tb_ts as
 select tb.tablename, ts.host, ts.ts_uuid
-, count (ts.ts_uuid )  nr_ldr_tablets
+     , count (ts.ts_uuid )  nr_ldr_tablets
 from ybx_tabl tb
    , ybx_tbtt tbtt
    , ybx_tblt tt
@@ -258,7 +286,7 @@ where tb.tb_uuid = tbtt.tb_uuid
 order by tb.tablename, ts.host;
 
 -- overall status of TS: leaders + followers..
-select ts.host, ts.ts_uuid
+select ts.host, ts.ts_uuid 
 , sum ( case when rp.role = 'LEADER'    then 1 else 0 end ) as ldrs
 , sum ( case when rp.role = 'FOLLOWER'  then 1 else 0 end ) as fllwrs
 from ybx_tsrv ts
@@ -266,8 +294,13 @@ from ybx_tsrv ts
 where ts.ts_uuid = rp.ts_uuid
 group by ts.host, ts.ts_uuid; 
 
--- ts for 1 table: ldrs and followers
-select tb.db_type, tb.database, tb.tablename, ts.host, ts.ts_uuid
+-- view to combine tables with tservers (best one so far?)
+-- use this to show :
+--  - tables on a host, e.g. when host is in trouble
+--  - host under a table, e.g. show geo-location of a table, or impact of removing host
+create or replace view ybx_tb_to_ts as 
+select tb.db_type, tb.database, tb.tablename, tb.tabletype
+     , ts.host, ts.port, ts.ts_uuid 
 , sum ( case when rp.role = 'LEADER'    then 1 else 0 end ) as ldrs
 , sum ( case when rp.role = 'FOLLOWER'  then 1 else 0 end ) as fllwrs
 from ybx_tsrv ts
@@ -277,9 +310,9 @@ where ts.ts_uuid = rp.ts_uuid
   and rp.tt_uuid in ( /* collect all tts for tb from the n:m */ 
                     select tbtt.tt_uuid from ybx_tbtt tbtt where tbtt.tb_uuid = tb.tb_uuid  
                     )
-  and tb.tablename = 'ybx_mast'
-group by tb.db_type, tb.database, tb.tablename, ts.host, ts.ts_uuid 
-order by tb.tablename ;
+  -- and tb.tablename like 't%'
+group by tb.db_type, tb.database, tb.tablename, tb.tabletype, ts.host, ts.ts_uuid, ts.port 
+order by tb.tablename, ldrs desc, fllwrs ;
 
 -- original table to host for tt-leaders
 select tb.tablename, ts.host, ts.ts_uuid
@@ -298,5 +331,28 @@ where tb.tb_uuid = tbtt.tb_uuid
   and tt.ts_uuid = ts.ts_uuid
   group by tb.tablename, ts.host, ts.ts_uuid
 order by tb.tablename, ts.host;
+
+
+-- -- --  from host: which tables and which roles are affected -- -- -
+-- find tables per tserver..
+-- tserver => leading for...
+-- tserver => following for...
+-- todo: show follower-count, rather than lis followers
+select ts.host
+--, ts.ts_uuid
+, tb.tablename for_tabl
+, rp.role 
+, rp.tt_uuid via_tablet
+from ybx_tsrv ts
+   , ybx_ttrp rp
+   , ybx_tabl tb
+   , ybx_tbtt tbt
+where ts.ts_uuid = rp.ts_uuid
+  and rp.tt_uuid = tbt.tt_uuid
+  and tb.tb_uuid = tbt.tb_uuid 
+order by ts.host, tb.tablename, rp.role desc, ts.ts_uuid;
+
+-- for table, show tservers, with nr of leaders + followers..
+-- note: already done above ?
 
 

@@ -9,7 +9,8 @@
 #  => select '\! ./ld_yb_ent_2tt.sh ' || tb_uuid || ' ' || db_type||'.'||database|| ' ' || tablename
 #       from ybx_tabl;
 #
-# call:  \! sh ld2.out
+# call:  \i ld2.out
+# note: the generated lines are meant to be called from inside psql.
 # 
 # notes:
 # - RISK: running multiple processes will corrupt data, 
@@ -50,7 +51,7 @@ ysqlsh -X postgresql://yugabyte@node5:5433,node6:5433,node7:5433?connect_timeout
   --select * from ybx_tblt ;
 
   \echo .
-  \echo combining table and tables for $tb_nm
+  \echo combining table and tablets for $tb_nm
 
   -- combine table+tablet, replace values to prevent doubles
   -- consider merge in future?? better not leave old data..

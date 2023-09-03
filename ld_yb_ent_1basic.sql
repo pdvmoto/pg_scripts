@@ -1,6 +1,25 @@
 -- #!/bin/sh
-
+--
 --# ld_yb_ent_1basic.sh: load basic yb-entities into table.
+--
+-- note: anomaly at "sys catalog" find out, remove..
+--
+
+\echo ----- about to load yb-entities, metadata --- 
+
+\echo ----- some information to verify ----- 
+\echo .
+\echo You are on host : 
+\! hostname
+\echo         on pwd  : 
+\! pwd
+\echo environment has MASTERS : 
+\! set | grep MASTERS
+\echo environment has tools : 
+\! `which yb-admin'  and `which yugatool`
+
+
+\! read -p "hit enter if ready to continue... " abc
 
 \echo ----- loading master data from yugatool -----
 
@@ -94,6 +113,59 @@ where length ( trim(slurp))  > 0 ;
 
 select * from ybx_tabl order by tablename ;
 
-\echo ----- simple loading done, now scripts to loop over table-data and tablet-data ----- 
+\echo ----- 
 \echo .
+\echo Verify data.. 
+\echo note: Verify anomaly at sys-catalog?
+\echo .
+\echo ----- simple loading done, -----------
+\echo .
+\echo next : calls to scripts ld_yb_ent_2tt and .._3ttrep, loop over table-data and tablet-data ----- 
+\echo .
+
+-- generate calls: (spool to \t \o ld2.out )
+--  => select '\! ./ld_yb_ent_2tt.sh ' || tb_uuid || ' ' || db_type||'.'||database|| ' ' || tablename
+--       from ybx_tabl;
+-- call:  \i ld2.out
+--
+
+\! echo ----- some information to verify -----
+\! echo .
+\! echo "You are on host            : " `hostname`
+\! echo "        on pwd             : " `pwd`
+\! echo .
+\! echo environment has MASTERS ? 
+\! echo ` set | grep MASTERS `
+\! echo .
+\! echo environment has tools ?
+\! echo "    yb-admin               : " `which yb-admin`  
+\! echo "    yugatool               : " `which yugatool` 
+\! echo .
+\! echo .....
+\! read -p "hit enter to continue, control-C to stop" abc
+
+
+\t on
+\o ld2.out
+select '\! ./ld_yb_ent_2tt.sh ' || tb_uuid || ' ' || db_type||'.'||database|| ' ' || tablename  from ybx_tabl ;
+
+\i ld2.out
+
+\! echo .
+\! echo ld2 done, tablets are in, hit enter to read details on repicas: ybx_ttrp..
+\! echo .
+\! read -p "hit enter to continue, control-C to stop" abc
+
+-- generate calls: (spool to \t \o ld3.out )
+\t on
+\o ld3.out
+select '\! ./ld_yb_ent_3ttrep.sh ' || tt_uuid from ybx_tblt;
+
+\i ld3.out
+
+\echo .
+\echo ---------- loading from ld2 nd ld3 done... next run some verifications -------
+
+
+
 
