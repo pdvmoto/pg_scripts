@@ -27,7 +27,7 @@ export tb_nm=$3
 ysqlsh -X postgresql://yugabyte@node5:5433,node6:5433,node7:5433?connect_timeout=2 <<EOF
 
   delete from ybx_intf ;
-  \copy ybx_intf from program 'yb-admin -master_addresses $MASTERS list_tablets $tb_db $tb_nm  | tail -n +2 | cut -f1,4 | expand ' ;
+  \copy ybx_intf from program 'yb-admin -master_addresses $MASTERS list_tablets $tb_db $tb_nm 0 | tail -n +2 | cut -f1,4 | expand ' ;
 
 
   \echo replacing data for $tb_id $tb_db $tb_nm

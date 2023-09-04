@@ -133,9 +133,10 @@ begin
     s.id                                     as id
   , case mod ( s.id+1, 10000 )  when 0 then 'Y' else 'N' end  as active
   , mod ( s.id, 10000 ) / 100                as amount
-  , ( current_date - s.id::int  )            as dt   /* cant use bigint??i  */
+  , ( current_date - s.id::int  )            as dt       /* cant use bigint??  */
   , rpad ( fnNumberToWords ( s.id ), 198)    as payload
-  , txt_filler                               as  filler
+  , f_rndmstr ( 740 )                        as  filler  /* make it hard to compress */
+  --, txt_filler                               as  filler
   from s
   ;
 

@@ -308,10 +308,12 @@ from ybx_tsrv ts
    , ybx_tabl tb
 where ts.ts_uuid = rp.ts_uuid
   and rp.tt_uuid in ( /* collect all tts for tb from the n:m */ 
-                    select tbtt.tt_uuid from ybx_tbtt tbtt where tbtt.tb_uuid = tb.tb_uuid  
+                    select tbtt.tt_uuid from ybx_tbtt tbtt 
+                    where tbtt.tb_uuid = tb.tb_uuid  
                     )
-  -- and tb.tablename like 't%'
-group by tb.db_type, tb.database, tb.tablename, tb.tabletype, ts.host, ts.ts_uuid, ts.port 
+group by tb.db_type, tb.database, tb.tablename, tb.tabletype
+       , ts.host, ts.ts_uuid, ts.port ;
+
 order by tb.tablename, ldrs desc, fllwrs ;
 
 -- original table to host for tt-leaders

@@ -32,3 +32,31 @@ more details:
 (screenshot of blog)
 
 
+Request : Listing of hostnames (nodenames, IPs) in alfabetical order.
+
+This concerns : yb-admin output and yugatool output.
+
+Currently, I use 3 means to monitor host/nodes/servers: 
+yb-admin (list masters, list tservers), 
+yugatool (cluster_info)
+select * from yb_servers() 
+
+Each of those provides lists (or tuples, or lines) of hosts, but often in seemingly random order.
+
+To quickly inspect the state of my hosts, I often "assume" that the listings are in the same order.
+But they often are not or the order seems to change (with stop/start of components?). 
+The order in which those hosts appear is seemingly random.
+
+When I list my hosts using Select host from yb_servers() I tend to add 
+order-by-host, and that ordering is logical, consistent, and easy to read.
+But when I look at stdout from yb-admin or yugatool, there seems to be no consistent ordering.
+This makes "spotting" of dead-nodes, or any monitoring or troubleshooting slightly confusing, 
+as I have to always carefully look for host:port, and and alway have to check the IPs or nodenames.
+
+Attached: Screenshot of: yb-admin (masters + tservers) follwed by yb_servers();
+The ordering of the tsverver from yb-admin is (accidentally) reverse-alphabetic, 
+with funny enought the dead-nodes on top.
+
+Hence the Request, for yb-admin and yugatool: Always present in order of host(name) ? 
+
+
