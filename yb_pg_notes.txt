@@ -1,0 +1,18 @@
+Question/Suggestion about the master-list for yb-admin and yugatool, and possibly some other components. 
+
+I'm using yugatool and yb-admin quite a bit, often in a monitoring-loop (a watch-loop), and I noticed:
+Both tools work fine as long as the address_list contains the master-leader. 
+Both tools both actually work fine if you _only_ supply the leader host:port.
+
+But they both fail (hang or error) if the list does not contain the actual master-leader.
+
+Suggestions are two:
+1. default the masterlist to localhost:7100, and 
+2. allow the list to be functional if any of the master-follower addresses is in.
+
+Hence, the tools would work as long as just one of the addresses is a valid (up+running) master-follower. 
+The follower can point/redirect to the current leader (if there is one), or even return the relevant info ? 
+
+reason: by defaulting the localhost, these tools would work from any of the nodes were a master is running.
+makes the job of monitoring, interrogating, and "Administrating" the cluster a lot easier, 
+especially if the master-list is changing regularly.

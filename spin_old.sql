@@ -27,6 +27,8 @@ DO $$
 
       i_counter := i_counter + 1 ; 
 
+      \copy ybx_intfc from program 'ls -l' ;
+
       -- RAISE NOTICE 'spin: diff= % ; counter = % ', i_diff, i_counter ; 
 
     END LOOP ;  

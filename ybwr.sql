@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 
+=======
+>>>>>>> 76f2436b8d56204aed6619bda8e39ad3eea7c0fd
 /*
 
    This installs YBWR to collect metrics from YugabyteDB metrics endpoints, store them and query them from YSQL
@@ -183,4 +186,7 @@ execute snap_tablet;
 
 execute snap_table;
 \watch 10
+<<<<<<< HEAD
 
+=======
+>>>>>>> 76f2436b8d56204aed6619bda8e39ad3eea7c0fd

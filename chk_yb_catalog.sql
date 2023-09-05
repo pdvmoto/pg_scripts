@@ -147,3 +147,99 @@ insert into x_timing values ( 1, 8, 6, 'qry desc' ) ;
 
 create table region1 ( region_id smallint primary key, region_description bpchar ) split into 1 tablets ;
 
+
+-- define logical entities for ybx, use real keys for the moment --
+
+create table ybx_universe  (
+  clusteruuid text primary key
+, version int
+, numreplicas int
+) ; 
+-- pick up data from :
+-- ybuniv='yb-admin -master_addresses $MASTERS get_universe_config '
+-- note: cloud etc.. can be multiple-properties, check nodes
+
+create table ybx_host (
+-- node = master or tserver, or both..
+  uuid        text primary key /* from yb_servers() */
+, hostname    text
+, port        bigint
+, node_type   text
+, cloud       text, region text, zone text
+, public_ip   text
+, num_connections bigint  /* bcse yb_servers() has this */
+, constraint ybx_hostname_unq unique ( hostname ) 
+) ; 
+
+-- pickup from "host" in yb_servers() ? or from yb-admin some-list.. ? 
+-- question: can ip+hostname change over time? what impact?
+-- question: can hosts be in cluster without running a master or tserver ?
+
+create table ybx_master ( 
+  uuid              text   primary key
+, rpc_host          text,  rpc_port     int
+, state             text
+, bcst_host         text,  bcst_port    int
+, role              text   /* leader, follower, dead, unknown, others.. */
+) ; 
+-- pick up from :
+-- yb-admin -master_addresses $MASTERS list_all_masters
+-- yb-admin -master_addresses $MASTERS list_all_tablets_servers
+
+create table ybx_tservr (
+  uuid              text    primary key
+, rpc_host          text,   rpc_port    int
+, status            text      /* alive, dead, ... */
+, memory            bigint
+, reads_psec        float,  writes_psec  float
+, uptime_sec        bigint
+);
+-- pick up from:
+-- yb-admin -master_addresses $MASTERS list_all_tablet_servers
+
+create table ybx_table (
+  uuid       text primary key  /* assume this is the yb-key ? */
+, db_type    text   /* values: ycql, ysql - signify cassandra or postgres */
+, database   text   /* values: postgres, system, system_platform, system_postgres, system_schema, template0, tempate1,  yugabyte */
+, oid        bigint /* from pg_class */ 
+, tablename  text   /* from pg_tables */
+, schemaname text 
+, tableowner text 
+, table_type text /* values: catalog, index, table */
+);
+-- pick up data from yb-admin list_tables:
+-- yb-admin -master_addresses $MASTERS list_tables  include_db_type include_table_id include_table_type | sed s'/\./\ /g' 
+-- then join in data from ybx_tblinfo
+
+ 
+create table ybx_tblet ( 
+  uuid        text primary key  /* assume this is the yb-key for tablet */
+, leader_ip   text              /* node + port where leader is located */
+, range       text              /* partition split info */
+, leader_uuid text              /* seems to relate to tserver ... */ 
+); 
+-- pick up tablet info with:
+-- yb-admin  -master_addresses node1:7100 list_tablets ysql.yugabyte t1   
+
+create table ybx_ttsrep ( 
+  tsrvr_uuid    text    /* foreign key to tserver, the hosting node */
+, tablet_uuid   text    /* parent tablet, also link to table */
+, role          text    /* leader or follower */
+, constraint ybx_ttsrv_pk primary key ( tsrvr_uuid, tablet_uuid ) 
+); 
+-- how to find.
+-- yb-admin -master_addresses $MASTERS list_tablet_servers tablet_uuid 
+
+-- now define the foreign keys..
+
+-- master is located on a host: 
+alter table ybx_master add constraint ybx_master_host 
+foreign key ( rpc_host ) 
+references ybx_host ( hostname ) ;
+
+
+
+
+notes
+mviews.. : also hold tablets.
+replicats are the physical entieies.

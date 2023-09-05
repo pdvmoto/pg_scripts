@@ -9,3 +9,54 @@ even kort voor de standup:
 
 
  
+Automated failover for yb-master.
+
+Aim: Keep sufficient master-processes running when yb-masters fail or drop off the network.
+Also reduce the manual work of "change_master_config" needed to provision for a failed yb-master.
+
+Suggestion: keep a list of available master-nodes, 
+on which a replacement yb-master process can start and join the cluster.
+This could be nodes already running tservers in the same rack, 
+or could be dedicated nodes designated to run yb-master processes in same or nearby locations.
+These "masters-in-waiting" could even have a running yb-master (as does the docker-demo containe?).
+
+More background: 
+It seems I can lose, disconnect or kill many (all) of the nodes that only run tserver without losing my database, 
+as tablets get moved around to the remaining nodes.
+But if I lose "quorum" on the (hardcoded?) master-list, my cluster stops.
+Having some failover mechanism for yb-master processes could make my cluster even more resilient?
+
+
+more details: 
+(link to blog with testing master-fails)
+(screenshot of blog)
+
+
+Request : Listing of hostnames (nodenames, IPs) in alfabetical order.
+
+This concerns : yb-admin output and yugatool output.
+
+Currently, I use 3 means to monitor host/nodes/servers: 
+yb-admin (list masters, list tservers), 
+yugatool (cluster_info)
+select * from yb_servers() 
+
+Each of those provides lists (or tuples, or lines) of hosts, but often in seemingly random order.
+
+To quickly inspect the state of my hosts, I often "assume" that the listings are in the same order.
+But they often are not or the order seems to change (with stop/start of components?). 
+The order in which those hosts appear is seemingly random.
+
+When I list my hosts using Select host from yb_servers() I tend to add 
+order-by-host, and that ordering is logical, consistent, and easy to read.
+But when I look at stdout from yb-admin or yugatool, there seems to be no consistent ordering.
+This makes "spotting" of dead-nodes, or any monitoring or troubleshooting slightly confusing, 
+as I have to always carefully look for host:port, and and alway have to check the IPs or nodenames.
+
+Attached: Screenshot of: yb-admin (masters + tservers) follwed by yb_servers();
+The ordering of the tsverver from yb-admin is (accidentally) reverse-alphabetic, 
+with funny enought the dead-nodes on top.
+
+Hence the Request, for yb-admin and yugatool: Always present in order of host(name) ? 
+
+
