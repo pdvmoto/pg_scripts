@@ -358,3 +358,87 @@ order by ts.host, tb.tablename, rp.role desc, ts.ts_uuid;
 -- note: already done above ?
 
 
+-- adding primitive metrics for nodes... ---
+
+-- parent table for nodes : 
+-- (not much info yet .. just parent-entity for masters, tserver, cpu, mem, storage... )
+create table ybx_node (
+  nd_host text primary key 
+, num_cpu integer
+, mem_mb
+, disk_mb
+) split into 3 tablets ;
+-- fill from ... yb-server and some program-scraping..? 
+
+-- snapshot tbl: the combi of "entity" and "measurment-point" at a given dt.
+-- to act as parent-tbl to snap-metrics in ts, ms, and other entities.
+create table ybx_snap (
+  sn_id  bigint primary key
+, sn_dt  timestamp default now() 
+)  split into 3 tablets ;
+
+-- mast_metrics: master + timestamp + metrics.. : leader, 
+-- later: consider including some cpu-per, mem-perc..?
+create table ybx_mast_mtrc (
+  ms_uuid text not null
+, sn_id bigint  /* fk to snap-table, really needed ? */
+, sn_dt timestamp default now()
+, mm_leader  text  /* can be boolean later? */
+, constraint ybx_mm_pkey primary key ( ms_uuid, sn_id ) 
+) split into 3 tablets ; 
+
+-- tsrv_metrics: tserver + timestamp + metrics.. : leader, 
+-- later: consider including some cpu-per, mem-perc..?
+create table ybx_tsrv_mtrc (
+  ts_uuid    text not null
+, sn_id      bigint  /* fk to snap-table, really needed ? */
+, sn_dt      timestamp default now()
+, ts_alive   text    /* boolean?  but txt has multiple-values */
+, ts_reads   bigint  /* seems like integer */
+, ts_writes  bigint  /*  */
+, ts_heartb  number  /* float, seems 3-decimal seconds */
+, constraint ybx_tm primary key ( ts_uuid, sn_id ) 
+) split into 3 tablets ; 
+
+-- add constraints: point to ms, ts, possibly to snap.
+
+create sequence snap_seq ;
+
+-- fill.. each metric-table needs pl-pgsl block ...:
+-- do-declare-begin-end...
+--  - transation to have interface-table private view
+--  - define snapshot, find snap_id and dt
+--  - call to ybtool to scrape data: master + ts.
+-- 
+
+DO $$
+DECLARE 
+  txt_in    text ;
+  i_sn_id   bigint ;
+
+BEGIN
+
+  select  nextval ( 'snap_seq' ) into i_sn_id ; 
+
+  -- create parent records snap, dt is dflt now():
+  insert into ybx_snap ( sn_id ) select i_sn_id as sn_id ; 
+
+  -- copy the metrics into intf
+  delete from ybx_intf ;
+  copy ybx_intf from program 'yugatool -m node2:7100,node3:7100,node4:7100 cluster_info | tail -n +12' ;
+  
+  -- insert metrics, add snap_id
+  insert into ybx_tsrv_mtrc ( sn_id, ts_uuid, dt, ts_alive, ts_reads, ts_writes )  
+  select  i_sn_id as sn_id
+       ,  substr ( slurp, 1, 33 ) as ts_uuid 
+       ,  substr
+  from ybx_intf 
+  where length ( trim (slurp) ) > 0 ; 
+
+END
+$$;
+
+select * from ybx_intf ;
+
+select sn_id, '['|| ts_uuid || ']' from ybx_tsrv_mtrc order by sn_id ;
+
