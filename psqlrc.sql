@@ -21,33 +21,46 @@
 
 \set PROMPT1 '%n @ %/%R > '
 
--- some yb specifics...
-
+-- some YUGABYTE specifics...
 \set       x 'explain ( analyze, dist ) '
-\set     cnt 'select count (*) from ' 
 \set tblinfo 'select oid, num_tablets as tblts, is_colocated as col, relname from ybx_tblinfo '
 \set servers 'select * from yb_servers () order by host ;'
 
+-- some COCKROACH specifics
+\set x 'explain analyze (distsql) '
+\set servers 'select * from crx_vnodes order by node_id ;'
+
+-- generic defines
+\set     cnt 'select count (*) from ' 
 \set     who '\\i who.sql ' 
 
 -- make an extra effort for the prompt..
 \t
 \o a.out
 
+-- yugabyte and postgres:
 select '\set PROMPT1 '' %n @ %/ @ '
 || setting
 || ' %R> '' '
 FROM pg_settings
 WHERE name='listen_addresses';
 
+-- cockroach
+select '\set PROMPT1 '' %n @ %/ @ '
+|| nodename 
+|| ' %R> '' '
+from crx_vnodeinfo; 
+
 \o
 \t
 
 \i a.out
 
-\echo  your dflt directiry is ; \! pwd 
+\echo  your dflt directory is ; \! pwd 
 
-select host, num_connections, zone, uuid from yb_servers () order by host;
+-- select host, num_connections, zone, uuid from yb_servers () order by host;
+
+:servers 
 
 select 'this was .psqlrc from ~pdvbv' as which_rc_was_this; 
 

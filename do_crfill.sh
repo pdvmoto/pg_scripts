@@ -12,15 +12,21 @@ while true
 do
 
 # ysqlsh -X -h node2  <<EOF
-  psql -X -h localhost -p 26257 -U root -d defaultdb <<EOF
-  
+# psql -X -h localhost -p 26257 -U root -d defaultdb <<EOF
+# ysqlsh -X postgresql://yugabyte@node5:5433,node6:5433,node7:5433?connect_timeout=2 <<EOF
+
+  psql -X postgresql://root@localhost:26257,localhost:26258,localhost:26259,localhost:26260,localhost:26263/defaultdb?connect_timeout=2 <<EOF
+
     \set QUIET on
     \timing off
     \pset footer off
     \t
 
     with s as ( select nextval('t_seq') as id
-                     , '$hostnm'        as hostadr 
+                     , '$HOSTNAME'      as clientnm
+                     , nodename         as hostnm
+                     , pg_sleep ( 1.0)  as sleep_sec
+                 from crx_nodeinfo
               )
     insert into t
     select
@@ -29,8 +35,8 @@ do
     , mod ( s.id, 10000 ) / 100                as amount
     , now ()                                   as dt   /* timestamp, ms  */
     , rpad ( format ( 'id: %s' , s.id ), 198)    as payload
-    ,     '{ "client" :"$hostnm",' 
-      ||  '  "host"   :"'	|| s.hostadr || '"}' as  filler
+    ,     '{ "client" :"' || substr ( s.clientnm, 1, 15 ) || '",' 
+      ||  '  "host"   :"'	|| s.hostnm || '"}' as  filler
     from s
     ;
 
@@ -40,6 +46,7 @@ do
                ,  1000 * to_char ( dt, 'ssss.ms'  )::numeric          as msecs
                , substr ( filler, 1, 50 )                  as filler
             from t
+            where t.dt > ( now() - interval '1 hour' )
     )
     select
            msecs - LAG  ( msecs, 1 ) OVER w as msec_diff
@@ -54,7 +61,7 @@ do
 
 EOF
 
-  sleep 1
+  # sleep 1
 
 done
 # end while loop
