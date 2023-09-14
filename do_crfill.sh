@@ -26,7 +26,7 @@ do
                      , '$HOSTNAME'      as clientnm
                      , nodename         as hostnm
                      , pg_sleep ( 1.0)  as sleep_sec
-                 from crx_nodeinfo
+                 from crx_vnodeinfo
               )
     insert into t
     select
