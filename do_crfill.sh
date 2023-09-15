@@ -14,8 +14,8 @@ do
 # ysqlsh -X -h node2  <<EOF
 # psql -X -h localhost -p 26257 -U root -d defaultdb <<EOF
 # ysqlsh -X postgresql://yugabyte@node5:5433,node6:5433,node7:5433?connect_timeout=2 <<EOF
-
-  psql -X postgresql://root@localhost:26257,localhost:26258,localhost:26259,localhost:26260,localhost:26263/defaultdb?connect_timeout=2 <<EOF
+# psql -X postgresql://root@localhost:26257,localhost:26258,localhost:26259,localhost:26260,localhost:26263/defaultdb?connect_timeout=2 <<EOF
+  psql -X postgresql://root@localhost:26250/defaultdb?connect_timeout=2 <<EOF
 
     \set QUIET on
     \timing off
@@ -44,14 +44,14 @@ do
                , dt
                , ( to_char ( dt, 'SSSS' ) )::bigint        as secs
                ,  1000 * to_char ( dt, 'ssss.ms'  )::numeric          as msecs
-               , substr ( filler, 1, 50 )                  as filler
+               , substr ( filler, 1, 70 )                  as filler
             from t
             where t.dt > ( now() - interval '1 hour' )
     )
     select
            msecs - LAG  ( msecs, 1 ) OVER w as msec_diff
          , id
-         , secs, msecs
+         -- , secs, msecs
          , to_char ( dt, 'HH24:MI:SS.MS' )  as timestmp
          , filler
     from t_seconds
