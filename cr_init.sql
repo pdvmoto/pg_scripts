@@ -13,11 +13,11 @@ note:
 
 create or replace view crx_vnodes as ( 
 select gn.node_id
-, split_part ( advertise_sql_address, ':', 1 )   as ndname
-, advertise_sql_address                          as sql_addr
-, case when is_live then 'live' else '-out-' end as live
-, ranges, leases
-, draining, decommissioning
+, '(n'|| gn.node_id || ') ' || split_part (gn.address, ':', 1) as ndname
+, advertise_sql_address                                    as sql_addr
+, case when is_live then 'live' else '-out-' end           as live
+, ranges   as rgs , leases          as les
+, draining as drai, decommissioning as decom
 , membership
 , updated_at              as up_since
 , (now() - gl.updated_at) as uptime
