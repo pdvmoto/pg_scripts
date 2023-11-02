@@ -49,3 +49,19 @@ group by totals ;
 \set ECHO none
 
 
+-- Note: only works with deprecated behaviour
+create view crx_vrangereps as (
+select range_id
+, unnest (voting_replicas ) node_id
+, table_id, lease_holder
+, case table_name when '' then '-unknown-' else table_name end tn 
+--, r.*
+from crdb_internal.ranges r ) ;
+
+create view crx_vrangelearners as (
+select range_id
+, unnest (learner_replicas ) learn_node_id
+, table_id, lease_holder
+, case table_name when '' then '-unknown-' else table_name end tn 
+--, r.*
+from crdb_internal.ranges r ) ;

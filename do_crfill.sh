@@ -14,8 +14,10 @@ do
 # ysqlsh -X -h node2  <<EOF
 # psql -X -h localhost -p 26257 -U root -d defaultdb <<EOF
 # ysqlsh -X postgresql://yugabyte@node5:5433,node6:5433,node7:5433?connect_timeout=2 <<EOF
-#  psql -X postgresql://root@localhost:26250/defaultdb?connect_timeout=2 <<EOF
-psql -X postgresql://root@localhost:26261,localhost:26262,localhost:26263,localhost:26260,localhost:26263/defaultdb?connect_timeout=2 <<EOF
+# psql -X postgresql://root@localhost:26250/defaultdb?connect_timeout=2 <<EOF
+# psql -X postgresql://root@localhost:26261,localhost:26262,localhost:26263,localhost:26260,localhost:26263/defaultdb?connect_timeout=2 <<EOF
+
+  psql -X postgresql://root@localhost:26250/defaultdb?connect_timeout=2 <<EOF
 
     \set QUIET on
     \timing off
@@ -25,7 +27,7 @@ psql -X postgresql://root@localhost:26261,localhost:26262,localhost:26263,localh
     with s as ( select nextval('t_seq') as id
                      , '$HOSTNAME'      as clientnm
                      , nodename         as hostnm
-                     -- , pg_sleep ( 1.0)  as sleep_sec
+                     , pg_sleep ( 1.0)  as sleep_sec
                  from crx_vnodeinfo
               )
     insert into t
