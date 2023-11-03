@@ -44,7 +44,7 @@ select
   '['|| substr ( slurp,   2,  32 ) || ']' as tsuuid
 , '['|| substr ( slurp,  37,  10 ) || ']' as host
 , '['|| trim ( substr ( slurp,  50,   5 ) ) || ']' as port
-, '['|| substr ( slurp,  79,   8 ) || ']' as role
+, '['|| substr ( slurp,  73,   8 ) || ']' as role
 from ybx_intf
 where length ( trim(slurp))  > 0 ;
 
@@ -55,7 +55,7 @@ select
   substr ( slurp,   2,  32 )               as ms_uuid
 , substr ( slurp,  37,  10 )               as host
 , trim ( substr ( slurp,  50,   5 ))::int  as port
-, trim ( substr ( slurp,  79,   8 ))       as role
+, trim ( substr ( slurp,  73,   8 ))       as role
 from ybx_intf
 where length ( trim(slurp) ) > 0 ;
 
@@ -72,7 +72,7 @@ select
   '['|| substr ( slurp,   2,  32 ) || ']' as tsuuid
 , '['|| substr ( slurp,  37,  10 ) || ']' as host
 , '['|| trim ( substr ( slurp,  50,   5 ) ) || ']' as port
-, '['|| trim ( substr ( slurp,  79,   8 ) ) || ']' as alive
+, '['|| trim ( substr ( slurp,  71,   8 ) ) || ']' as alive
 from ybx_intf
 where length ( trim(slurp))  > 0 ;
 
@@ -83,7 +83,7 @@ select
   substr ( slurp,   2,  32 )  as ts_uuid
 , substr ( slurp,  37,  10 )  as host
 , trim ( substr ( slurp,  50,   5 ) )::int  as port
-, trim ( substr ( slurp,  79,   8 ) )       as alive
+, trim ( substr ( slurp,  71,   8 ) )       as alive
 from ybx_intf
 where length ( trim(slurp))  > 0 ;
 

@@ -27,8 +27,8 @@
 \set servers 'select * from yb_servers () order by host ;'
 
 -- some COCKROACH specifics
-\set x 'explain analyze (distsql) '
-\set servers 'select * from crx_vnodes order by node_id ;'
+-- \set x 'explain analyze (distsql) '
+-- \set servers 'select * from crx_vnodes order by node_id ;'
 
 -- generic defines
 \set     cnt 'select count (*) from ' 
