@@ -41,7 +41,7 @@ select cnt ('t')  recs_in_t ;
 \echo 'Check the table T, lots of data now ... hm..??'
 \echo .
 
-\i fill_t.sql
+-- \i fill_t.sql
 
 \! read abc
 

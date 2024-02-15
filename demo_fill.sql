@@ -34,7 +34,7 @@ create table t
 , dt                timestamp         -- some date, case we want history stuff
 , payload           varchar ( 200 )   -- some text , can be spoken word
 , filler            varchar ( 750 )  -- some data to create 1K recordsize
-) /* split into 1 tablets  */ ;
+) split into 1 tablets   ;
 
 \set ECHO none
 

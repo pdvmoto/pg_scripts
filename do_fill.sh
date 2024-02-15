@@ -1,4 +1,4 @@
-#!/usr/bin/sh
+#!/bin/sh
 #
 # do_fill.sh: fill the table t, and leave some info in filler-column
 #
