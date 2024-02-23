@@ -11,7 +11,7 @@ while true
 do
 
 # ysqlsh -X -h node2  <<EOF
-  ysqlsh -X postgresql://yugabyte@node5:5433,node6:5433,node7:5433?connect_timeout=2 <<EOF
+  ysqlsh -X postgresql://yugabyte@localhost:5432,localhost:5433,localhost:5434?connect_timeout=2 <<EOF
   
     \set QUIET on
     \timing off

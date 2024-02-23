@@ -5,6 +5,8 @@ select datname from pg_database ;
 
 select current_database() as current_db, version() as version; 
 
+SELECT  pg_postmaster_start_time() as started_at;
+
 -- colocation ?
 SELECT yb_is_database_colocated() as colocation;
 

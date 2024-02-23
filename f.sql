@@ -28,7 +28,8 @@ drop view  fl_view_mk_routes ;
 drop view  fl_rdrs_problems ; 
 drop view  fl_v_rider_names ; 
 
--- drop table fl_stag ; 
+-- out-comment to keep original data
+drop table fl_stag ; 
 
 drop TABLE FL_RTES;
 drop TABLE FL_LCTN;
@@ -227,10 +228,12 @@ insert into fl_rdrs ( rider_id, rider_name )
 
 -- stageing table: copy from xls
 create table fl_stag (
-  seq_id        integer     not null
+  seq_id        serial     not null primary key
+, hiding_date_vc varchar(10)
 , hiding_date   timestamp
 , hiding_blz    varchar( 6)
 , hiding_rider  varchar(30)
+, finder_date_vc varchar(10)
 , finder_date   timestamp
 , finder_blz    varchar( 6)
 , finder_rider  varchar(30)
