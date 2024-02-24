@@ -1,8 +1,8 @@
 -- temp file to craate tables ct_fles_pg
 
 -- requirement for pg: CUBE and EARTHDISTANCE:
--- create extension cube ;  -- for point operator <@> 
--- create extension earthdistance ;
+--  CREATE EXTENSION CUBE ;  -- for point operator <@> 
+--  CREATE EXTENSION EARTHDISTANCE ;
 
 --
 -- note that yuo need psql -qAtX .... (option!) 
@@ -13,6 +13,24 @@
 -- later: tips to add data to google maps:
 --   https://www.google.com/earth/outreach/learn/visualize-your-data-on-a-custom-map-using-google-my-maps/
 -- 
+/*
+
+todo, ideas.
+ - generate CSV files for map-layes, see link above
+ - export map-data for 1 or more riders : lines + points
+ - export map-data for 1 city or 1 province (lines + points)
+ - data checks:
+    - valid coordinates (most important)
+    - valid dates
+    - valid province + city names
+    - valid list of rider-names
+    - 
+
+need functions for:
+ - line with data to stdout, line is possibly result of "table", vector or array..
+ - point with data to stdout
+
+*/
 
 -- drop relevat stuff, in order of dependency.
 
