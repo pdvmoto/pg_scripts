@@ -7,6 +7,11 @@
 --
 -- note that yuo need psql -qAtX .... (option!) 
 -- to prevent info and "+" IN output when generating kml.
+--
+-- note that import via DBeaver is easy, but put the dates in vc first..
+--
+-- later: tips to add data to google maps:
+--   https://www.google.com/earth/outreach/learn/visualize-your-data-on-a-custom-map-using-google-my-maps/
 -- 
 
 -- drop relevat stuff, in order of dependency.
