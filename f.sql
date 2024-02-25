@@ -12,7 +12,38 @@
 --
 -- later: tips to add data to google maps:
 --   https://www.google.com/earth/outreach/learn/visualize-your-data-on-a-custom-map-using-google-my-maps/
--- 
+--
+
+/* 
+ use this to select lines:
+  select lon_degr || ', ' || lat_degr ||',  0.1' as coord from fl_stag where lat_degr is not null order by seq_id ;
+ 
+select 'long, lat, hid_by, found_by, hiding_dt, loc_desc' as headerline;
+
+ to select verstops:
+select rpad ( to_char (lon_degr, '99.999999'), 9) || ', ' || rpad (to_char (lat_degr, '99.999999'), 9 ) || ', 0.1 '
+  || ', "' || rpad ( hiding_rider, 15 ) || '"'
+  || ', "' || hiding_date_vc || '"'
+--, finder_rider
+  || ', "' || loc_desc || '"' as verstop
+from fl_stag
+where lon_degr is not null
+order by seq_id ;
+
+tips for CSV:
+ - create descriptive field for title: rider + loc-desc
+ - only 2000 lines per file, need one file per year ?
+  - file per year : locs + lines
+  - file per fles 
+  - file per rider : in-find-ride-hide-out : 4 locations and 3 lines and per find
+  - file per province, over all years: loc-in-prov, and in-out lines?
+ 
+functions: 
+  show_line_kml: 2 or 4 locations, leading to lines of 1 or 3 segments
+  show_locaion_kl: 1 placemark, with info from hider, finder, date, desc
+*/
+
+ 
 /*
 
 todo, ideas.
