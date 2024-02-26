@@ -1,4 +1,8 @@
 -- temp file to craate tables ct_fles_pg
+-- divide this file over others: 
+--  - create
+--  - load + pre-process, into normalized riders, rtes and locs
+--  - scripts to generate output...
 
 -- requirement for pg: CUBE and EARTHDISTANCE:
 --  CREATE EXTENSION CUBE ;  -- for point operator <@> 
@@ -83,7 +87,7 @@ drop view  fl_rdrs_problems ;
 drop view  fl_v_rider_names ; 
 
 -- out-comment to keep original data
-drop table fl_stag ; 
+-- drop table fl_stag ; 
 
 drop TABLE FL_RTES;
 drop TABLE FL_LCTN;
@@ -101,22 +105,21 @@ create sequence fl_lctn_seq ;
 create sequence fl_rtes_seq ;
 
 
-
 -- drop table fl_rdrs ;
 create table fl_rdrs (
-  rider_id       integer  not null
+  rider_id       integer  not null primary key
 , rider_name     varchar(30) not null
--- room for more attributres.. rider_locations, email, telno, etc..
+-- room for more attributres.. rider_locations, email, telno, first-find, etc..
 );
 
 -- create unique index fl_rdrs_pk on fl_rdrs ( rider_id  );
-create unique index fl_name_uk on fl_rdrs ( rider_name  );
+create unique index fl_name_uk on fl_rdrs ( rider_name );
 
-alter table fl_rdrs add constraint fl_rdrs_pk primary key ( rider_id ) ; 
+-- alter table fl_rdrs add constraint fl_rdrs_pk primary key ( rider_id ) ; 
 
 -- drop table fl_fljs ;
 create table fl_fljs (
-  fles_id         integer not null
+  fles_id         integer not null primary key
 , fles_name       varchar (30)
 , fles_startdate  timestamp
 , fles_enddate    timestamp
@@ -124,7 +127,7 @@ create table fl_fljs (
 );
 
 -- create unique index fl_fljs_pk on fl_fljs ( fles_id  );
-alter table fl_fljs add constraint fl_fljs_pk primary key ( fles_id ) ; 
+-- alter table fl_fljs add constraint fl_fljs_pk primary key ( fles_id ) ; 
 
 /*
 0...5....1....5....2....5....3....5....4....5....5....5....6....5....7....5....8
@@ -223,6 +226,16 @@ insert into fl_fljs ( fles_id, fles_name ) values ( nextval('fl_fljs_seq'),  'Fl
 insert into fl_fljs ( fles_id, fles_name ) values ( nextval('fl_fljs_seq'),  'Fles_10' );
 
 insert into fl_fljs ( fles_id, fles_name ) values ( nextval('fl_fljs_seq'),  'Fles_11' );
+insert into fl_fljs ( fles_id, fles_name ) values ( nextval('fl_fljs_seq'),  'Fles_12' );
+insert into fl_fljs ( fles_id, fles_name ) values ( nextval('fl_fljs_seq'),  'Fles_13' );
+insert into fl_fljs ( fles_id, fles_name ) values ( nextval('fl_fljs_seq'),  'Fles_14' );
+insert into fl_fljs ( fles_id, fles_name ) values ( nextval('fl_fljs_seq'),  'Fles_15' );
+
+insert into fl_fljs ( fles_id, fles_name ) values ( nextval('fl_fljs_seq'),  'Fles_16' );
+insert into fl_fljs ( fles_id, fles_name ) values ( nextval('fl_fljs_seq'),  'Fles_17' );
+insert into fl_fljs ( fles_id, fles_name ) values ( nextval('fl_fljs_seq'),  'Fles_18' );
+insert into fl_fljs ( fles_id, fles_name ) values ( nextval('fl_fljs_seq'),  'Fles_19' );
+insert into fl_fljs ( fles_id, fles_name ) values ( nextval('fl_fljs_seq'),  'Fles_20' );
 
 -- add dates as workaround
 update fl_fljs set fles_startdate = to_date ('16-08-2010', 'DD-MM-YYYY')
@@ -269,6 +282,8 @@ update fl_fljs set fles_startdate = to_date ('04-01-2015', 'DD-MM-YYYY')
                  , fles_enddate   = to_date ('29-11-2020', 'DD-MM-YYYY')
 where fles_id = 11 ;
 
+-- todo: add dates for fles 12-19
+
 -- and add jaap, the oldest rider...
 insert into fl_rdrs ( rider_id, rider_name )
    values ( nextval ('fl_rdrs_seq'), 'jaap43'  );
@@ -301,7 +316,7 @@ create table fl_stag (
 
 -- create unique index fl_stag_pk on fl_stag ( seq_id ) ;
 -- constraint seems to imply index by same name..
-alter table fl_stag add constraint fl_stag_pk primary key  ( seq_id ) ;
+-- alter table fl_stag add constraint fl_stag_pk primary key  ( seq_id ) ;
 
 -- -- -- 
 -- check sanity of data in staging table
@@ -321,7 +336,7 @@ union
   select finder_rider from fl_stag
 );
 
---do the insert first...
+--do the insert of riders first...
 insert into fl_rdrs (rider_id, rider_name)
 select nextval ( 'fl_rdrs_seq' ), rider_name from fl_v_rider_names
 where rider_name not in ( select rider_name from fl_rdrs ) ; 
@@ -355,7 +370,7 @@ insert into fl_lctn
      ( loc_id, fles_id, hiding_id, hiding_date
      , lat_degr, lon_degr, loc_desc, city, prov )
 select seq_id, 1                                      -- dflt fles =>1
-     , h.rider_id, s.hiding_date
+     , h.rider_id, to_date ( s.hiding_date_vc, 'dd-mm-yyyy')
      , s.lat_degr, s.lon_degr, s.loc_desc, s.city, s.prov
 from fl_stag s
    , fl_rdrs h
@@ -424,10 +439,30 @@ where r.fr_loc_id = fr_l.loc_id
   and i.to_loc_id = fr_l.loc_id)
 ;
 
+-- newer version of location, including more info and riders, 
+-- todo: include to+from routes ?
+CREATE OR REPLACE VIEW fl_v_lctn_info as
+  (
+select l.loc_id
+     , l.lon_degr, l.lat_degr
+     , l.city, l.prov, l.loc_desc
+     , l.hiding_date, l.hiding_id, hid_r.rider_name as hiding_name
+     , l.finder_date, l.finder_id, fnd_r.rider_name as finder_name
+from fl_lctn l   
+   , fl_rdrs hid_r
+   , fl_rdrs fnd_r
+where 1=1
+  and l.hiding_id  = hid_r.rider_id
+  and l.finder_id  = fnd_r.rider_id
+  )
+;
+
+
+
 --------------------------------------------------------
 --  DDL for View FL_V_RTES
 -- for postgres: consider including the coordinates of both points.
--- conider addeing distances
+-- conider adding distances
 --------------------------------------------------------
 
 select  'fl_v_rtes' ; 
@@ -448,6 +483,55 @@ from fl_lctn fr_l   -- from
 where r.fr_loc_id = fr_l.loc_id
   and to_l.loc_id = r.to_loc_id )
 ;
+
+-- more info on route, 
+-- use route as central retrieval item, 
+-- that should include: rte + two locations + to_from rts of the locations?
+-- means a route-placemark + loctions includes :
+--    - all info (display) on two locs, notably two additional rider names
+--    - later: two additional lines in + out, 4 point-coordinates total (later!)
+
+-- note : this misses the first loc and first rte.. 
+-- hence, possiby create a route-0 (for each bottle?) to indicate which rider hid the start of each bottle 
+-- logical model wise, this means hiding_rider_id goes with location, and finding_rider_id comes from next loc.
+-- this could remove rider_id from route alltogether (theoretically). practial is to keep rider on route.. (I htink)
+
+create or replace view fl_v_rte_info as 
+(select 
+  r.rte_id
+, r.rider_id
+, rd.rider_name
+, r.dist_sdo
+, lc_in.loc_id      loc_in_id
+, lc_in.loc_desc    loc_in_desc
+, lc_in.city        loc_in_city
+, lc_in.prov        loc_in_prov
+, rt_in.rte_id      rte_in_id
+, rd_in.rider_id    rider_in_id
+, rd_in.rider_name  rider_in_name
+, lc_out.loc_id     loc_out_id
+, lc_out.loc_desc    loc_out_desc
+, lc_out.city        loc_out_city
+, lc_out.prov        loc_out_prov
+, rt_out.rte_id      rte_out_id
+, rd_out.rider_id    rider_out_id
+, rd_out.rider_name  rider_out_name
+from fl_rtes r
+   , fl_rdrs rd
+   , fl_lctn lc_in
+   , fl_rtes rt_in
+   , fl_rdrs rd_in
+   , fl_lctn lc_out
+   , fl_rtes rt_out
+   , fl_rdrs rd_out
+   , ( select /*chr(13)||*/ chr(10) lf ) as cr  /* bcse we need a lf */
+where  1=1
+  and r.rider_id    = rd.rider_id
+  and r.fr_loc_id   = lc_in.loc_id  
+  and r.fr_loc_id   = rt_in.to_loc_id and rt_in.rider_id  = rd_in.rider_id
+  and r.to_loc_id   = lc_out.loc_id  
+  and r.to_loc_id   = rt_out.fr_loc_id and rt_out.rider_id = rd_out.rider_id
+);
 
 
 select 'now do some reporting' as info ; 
