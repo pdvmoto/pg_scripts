@@ -5,8 +5,8 @@
 --  - scripts to generate output...
 
 -- requirement for pg: CUBE and EARTHDISTANCE:
---  CREATE EXTENSION CUBE ;  -- for point operator <@> 
---  CREATE EXTENSION EARTHDISTANCE ;
+CREATE EXTENSION CUBE ;  -- for point operator <@> 
+CREATE EXTENSION EARTHDISTANCE ;
 
 --
 -- note that yuo need psql -qAtX .... (option!) 
@@ -87,10 +87,14 @@ drop view  fl_v_chk_cities ;
 drop view  fl_v_rdrs_problems ; 
 
 drop view  fl_v_lctn ; 
+drop view  fl_v_lctn_info ; 
 drop view  fl_v_rtes ; 
+drop view  fl_v_rte_info ; 
 drop view  fl_view_mk_routes ; 
 drop view  fl_rdrs_problems ; 
 drop view  fl_v_rider_names ; 
+
+drop view fl_v_selection ;
 
 -- out-comment to keep original data
 -- drop table fl_stag ; 
@@ -508,35 +512,39 @@ create or replace view fl_v_rte_info as
 , r.rider_id
 , rd.rider_name
 , r.dist_sdo
-, lc_in.loc_id      loc_in_id
-, lc_in.loc_desc    loc_in_desc
-, lc_in.city        loc_in_city
-, lc_in.prov        loc_in_prov
-, rt_in.rte_id      rte_in_id
-, rd_in.rider_id    rider_in_id
-, rd_in.rider_name  rider_in_name
-, lc_out.loc_id     loc_out_id
-, lc_out.loc_desc    loc_out_desc
-, lc_out.city        loc_out_city
-, lc_out.prov        loc_out_prov
-, rt_out.rte_id      rte_out_id
-, rd_out.rider_id    rider_out_id
-, rd_out.rider_name  rider_out_name
+, lc_fr.loc_id      loc_fr_id
+, lc_fr.loc_desc    loc_fr_desc
+, lc_fr.city        loc_fr_city
+, lc_fr.prov        loc_fr_prov
+, lc_fr.lon_degr as fr_lon_degr
+, lc_fr.lat_degr as fr_lat_degr
+, rt_fr.rte_id      rte_fr_id
+, rd_fr.rider_id    rider_fr_id
+, rd_fr.rider_name  rider_fr_name
+, lc_to.loc_id      loc_to_id
+, lc_to.loc_desc    loc_to_desc
+, lc_to.city        loc_to_city
+, lc_to.prov        loc_to_prov
+, lc_to.lon_degr as to_lon_degr
+, lc_to.lat_degr as to_lat_degr
+, rt_to.rte_id      rte_to_id
+, rd_to.rider_id    rider_to_id
+, rd_to.rider_name  rider_to_name
 from fl_rtes r
    , fl_rdrs rd
-   , fl_lctn lc_in
-   , fl_rtes rt_in
-   , fl_rdrs rd_in
-   , fl_lctn lc_out
-   , fl_rtes rt_out
-   , fl_rdrs rd_out
+   , fl_lctn lc_fr
+   , fl_rtes rt_fr
+   , fl_rdrs rd_fr
+   , fl_lctn lc_to
+   , fl_rtes rt_to
+   , fl_rdrs rd_to
    , ( select /*chr(13)||*/ chr(10) lf ) as cr  /* bcse we need a lf */
 where  1=1
   and r.rider_id    = rd.rider_id
-  and r.fr_loc_id   = lc_in.loc_id  
-  and r.fr_loc_id   = rt_in.to_loc_id and rt_in.rider_id  = rd_in.rider_id
-  and r.to_loc_id   = lc_out.loc_id  
-  and r.to_loc_id   = rt_out.fr_loc_id and rt_out.rider_id = rd_out.rider_id
+  and r.fr_loc_id   = lc_fr.loc_id  
+  and r.fr_loc_id   = rt_fr.to_loc_id and rt_fr.rider_id  = rd_fr.rider_id
+  and r.to_loc_id   = lc_to.loc_id  
+  and r.to_loc_id   = rt_to.fr_loc_id and rt_to.rider_id = rd_to.rider_id
 );
 
 
