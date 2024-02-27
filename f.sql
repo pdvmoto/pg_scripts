@@ -34,6 +34,12 @@ from fl_stag
 where lon_degr is not null
 order by seq_id ;
 
+todo for model:
+ - store both rides at location,
+ - find a way to indicate mia on location
+ - no line between mia and first-verstop ?
+ - select first-verstop, even if no route-towards is found.
+
 tips for CSV:
  - create descriptive field for title: rider + loc-desc
  - only 2000 lines per file, need one file per year ?
