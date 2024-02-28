@@ -346,7 +346,9 @@ union
   select finder_rider from fl_stag
 );
 
+
 --do the insert of riders first...
+\echo insert riders into fl_rdrs
 insert into fl_rdrs (rider_id, rider_name)
 select nextval ( 'fl_rdrs_seq' ), rider_name from fl_v_rider_names
 where rider_name not in ( select rider_name from fl_rdrs ) ; 
@@ -376,6 +378,7 @@ order by upper(rider_name);
 
 
 -- store locations, first the mandatory fields, add optional fields later to avoid outer-joins
+\echo insert locations into fl_lctn
 insert into fl_lctn
      ( loc_id, fles_id, hiding_id, hiding_date
      , lat_degr, lon_degr, loc_desc, city, prov )
@@ -405,6 +408,7 @@ where tl.loc_id = ( select min ( nxt.loc_id ) -- the next valid location...
 );
 
 -- insert records and generate SDO (spatial) point-objects
+\echo insert into fl_rtes, then update to calc distance
 insert into fl_rtes ( rte_id, fr_loc_id, to_loc_id ,fles_id 
                     , rider_id, fr_earth, to_earth
 )
@@ -501,7 +505,7 @@ where r.fr_loc_id = fr_l.loc_id
 --    - all info (display) on two locs, notably two additional rider names
 --    - later: two additional lines in + out, 4 point-coordinates total (later!)
 
--- note : this misses the first loc and first rte.. 
+-- note : this misses the first loc and first rte, bcse no join possible to outlaying rte.. 
 -- hence, possiby create a route-0 (for each bottle?) to indicate which rider hid the start of each bottle 
 -- logical model wise, this means hiding_rider_id goes with location, and finding_rider_id comes from next loc.
 -- this could remove rider_id from route alltogether (theoretically). practial is to keep rider on route.. (I htink)
