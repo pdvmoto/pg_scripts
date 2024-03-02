@@ -6,6 +6,10 @@ usage: run this on a new db, to get some tooling
  ---------------  
 */
 
+\echo copied some settings from postgres, franck
+alter database yugabyte set yb_enable_optimizer_statistics to on;
+alter database yugabyte set yb_enable_base_scans_cost_model to true;
+
 \echo to generate spoken numbers
 \i n2words.sql
 

@@ -42,9 +42,9 @@ delete from ybx_intf ;
 -- verify
 select 
   '['|| substr ( slurp,   2,  32 ) || ']' as tsuuid
-, '['|| substr ( slurp,  37,  10 ) || ']' as host
-, '['|| trim ( substr ( slurp,  50,   5 ) ) || ']' as port
-, '['|| substr ( slurp,  73,   8 ) || ']' as role
+, '['|| substr ( slurp,  37,  5 ) || ']' as host
+, '['|| trim ( substr ( slurp,  44,   5 ) ) || ']' as port
+, '['|| substr ( slurp,  74,   8 ) || ']' as role
 from ybx_intf
 where length ( trim(slurp))  > 0 ;
 
@@ -53,9 +53,9 @@ delete from ybx_mast ;
 insert into ybx_mast ( ms_uuid, host, port, role )
 select 
   substr ( slurp,   2,  32 )               as ms_uuid
-, substr ( slurp,  37,  10 )               as host
-, trim ( substr ( slurp,  50,   5 ))::int  as port
-, trim ( substr ( slurp,  73,   8 ))       as role
+, substr ( slurp,  37,  5  )               as host
+, trim ( substr ( slurp,  44,   5 ))::int  as port
+, trim ( substr ( slurp,  74,   8 ))       as role
 from ybx_intf
 where length ( trim(slurp) ) > 0 ;
 
@@ -70,9 +70,9 @@ delete from ybx_intf ;
 -- verify
 select
   '['|| substr ( slurp,   2,  32 ) || ']' as tsuuid
-, '['|| substr ( slurp,  37,  10 ) || ']' as host
-, '['|| trim ( substr ( slurp,  50,   5 ) ) || ']' as port
-, '['|| trim ( substr ( slurp,  71,   8 ) ) || ']' as alive
+, '['|| substr ( slurp,  37,   5 ) || ']' as host
+, '['|| trim ( substr ( slurp,  44,   5 ) ) || ']' as port
+, '['|| trim ( substr ( slurp,  74,   8 ) ) || ']' as alive
 from ybx_intf
 where length ( trim(slurp))  > 0 ;
 
@@ -81,9 +81,9 @@ delete from ybx_tsrv ;
 insert into ybx_tsrv ( ts_uuid, host, port, alive )
 select
   substr ( slurp,   2,  32 )  as ts_uuid
-, substr ( slurp,  37,  10 )  as host
-, trim ( substr ( slurp,  50,   5 ) )::int  as port
-, trim ( substr ( slurp,  71,   8 ) )       as alive
+, substr ( slurp,  37,  05 )  as host
+, trim ( substr ( slurp,  44,   5 ) )::int  as port
+, trim ( substr ( slurp,  74,   8 ) )       as alive
 from ybx_intf
 where length ( trim(slurp))  > 0 ;
 
@@ -134,11 +134,12 @@ select * from ybx_tabl order by tablename ;
 \echo .
 \echo next : calls to scripts ld_yb_ent_2tt and .._3ttrep, loop over table-data and tablet-data ----- 
 \echo .
+\! read -p"Enter to continue or Control-C to stop in 10sec" -t 10 abc
 
 -- generate calls: (spool to \t \o ld2.out )
 \t on
 \o ld2.out
-select '\! ./ld_yb_ent_2tt.sh ' || tb_uuid || ' ' || db_type||'.'||database|| ' ' || tablename  from ybx_tabl ;
+select '\! ./ld_yb_ent_2tt.sh ' || tb_uuid || ' ' || db_type||'.'||database|| ' ' || tablename  from ybx_tabl order by db_type, database, tablename ;
 
 \i ld2.out
 

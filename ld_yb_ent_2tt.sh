@@ -22,17 +22,28 @@ export tb_id=$1
 export tb_db=$2
 export tb_nm=$3
 
+echo 2tt checking parameters id db and name ' : ' $tb_id ' : '  $tb_db ' : ' $tb_nm
 
 # do insert inside psql
 ysqlsh -X postgresql://yugabyte@node5:5433,node6:5433,node7:5433?connect_timeout=2 <<EOF
 
+  \echo start of $tb_nm 
+
   delete from ybx_intf ;
   \copy ybx_intf from program 'yb-admin -master_addresses $MASTERS list_tablets $tb_db $tb_nm 0 | tail -n +2 | cut -f1,4 | expand ' ;
 
+  select * from ybx_intf;
+
+  -- verify
+  select substr ( slurp,  1, 32 )  as tt_uuid
+       , substr ( slurp, 41, 72 )  as ts_uuid
+  from ybx_intf
+  where length ( trim(slurp) )  > 0 ; 
 
   \echo replacing data for $tb_id $tb_db $tb_nm
+  \echo . 
 
-  delete from ybx_tblt where tt_uuid = '$db_id' ;
+  delete from Ybx_tblt where tt_uuid = '$tb_id' ;
  
   \echo .
   \echo inserting tablets for $tb_nm
@@ -48,7 +59,7 @@ ysqlsh -X postgresql://yugabyte@node5:5433,node6:5433,node7:5433?connect_timeout
                     where tt.tt_uuid = substr ( slurp,  1, 32 ) 
                  ); 
 
-  --select * from ybx_tblt ;
+  select * from ybx_tblt where tt_uuid = '$tb_id'  ;
 
   \echo .
   \echo combining table and tablets for $tb_nm

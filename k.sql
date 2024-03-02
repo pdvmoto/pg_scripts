@@ -1,19 +1,34 @@
 
--- suppress informational output (quiet), use unaligned mode, output tuples only, suppress psqlrc reading.
+--
+--  suppress informational output (quiet), use unaligned mode, output tuples only, suppress psqlrc reading.
 --
 -- notes: KML is case sensitive ????
+
+/*
+notes
+select r.fr_loc_id, r.rte_id, r.to_loc_id 
+from fl_rtes r 
+where r.rider_id in  ( 
+select rider_id from fl_rdrs where rider_name like 'BSI'
+)
+order by r.fr_loc_id ; 
+
+*/ 
+
 
 \echo creating fl_f_loc_pmk, placemark for location
 
 CREATE OR REPLACE FUNCTION fl_f_loc_pmk ( p_loc_id integer )
  RETURNS text
- LANGUAGE plpgsql
+ LANGUAGE sql
 AS $function$
 DECLARE
   sql_stmnt TEXT;
   n_cnt BIGINT := 0 ;
   txt_out TEXT := '';
 BEGIN
+
+--   RAISE NOTICE 'fl_f_plcmrk_loc : creating placemark for loc_id [%] ', p_loc_id ;
 
   With cr as (select /*chr(13)||*/ chr(10) lf )
    select
@@ -51,7 +66,7 @@ $function$
 -- or just draw extra plcmmrks.
 CREATE OR REPLACE FUNCTION fl_f_lin_pmk ( p_lin_id integer )
  RETURNS text
- LANGUAGE plpgsql
+ LANGUAGE sql
 AS $function$
 DECLARE
   sql_stmnt TEXT;
@@ -67,7 +82,7 @@ BEGIN
    || '  <name> ' || rd.rider_name || ', to: ' || city || '  </name>' || cr.lf
    || '  <description> '                          || cr.lf
    ||       'dist: ' || r.dist_sdo || ' km'       || cr.lf
-   ||       '  dd: ' || l.hiding_date             || cr.lf
+   ||       '  dd: ' || to_char ( l.hiding_date, 'dd-mm-yyyy' )       || cr.lf
    ||       'r_id: ' || r.rte_id                  || cr.lf
    || '  </description> '                         || cr.lf
    || '  <LineString> <coordinates> '                         || cr.lf
@@ -96,6 +111,19 @@ END;
 $function$
 ;
 
+-- View to select routes, criteria can be coded into the view
+
+create or replace view fl_v_rtes_outlist as (
+select r.rte_id
+from fl_rtes r
+   , ( select loc_id as loc_id
+         from fl_lctn
+        where upper (prov) = 'ZE'
+     )  l
+ where r.fr_loc_id = l.loc_id
+    or r.to_loc_id = l.loc_id
+    );
+
 \o aalocs.kml
 
 \pset tuples_only on
@@ -108,7 +136,10 @@ select '<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://earth.google.com/kml/2.0"> <Document>
 ' as top_of_kml_file ; 
 
-With cr as (select /*chr(13)||*/ chr(10) lf ) 
+/* -- -- -- skip this, was just for testing frmat  
+With cr as (select 
+  -- chr(13)|| 
+     chr(10)   as lf ) 
  select 
     '<Placemark>' || cr.lf
  || '  <name>loc: ' || l.loc_id || ', ' || city || '  </name>' || cr.lf 
@@ -125,7 +156,7 @@ With cr as (select /*chr(13)||*/ chr(10) lf )
 --,  l.* 
 from fl_v_lctn_info l
    , cr 
-where 1=1 /* add criteria later */
+where 1=1 --  add criteria later 
 order by l.loc_id  
 limit 5 ; 
 
@@ -140,7 +171,7 @@ select '
 select  
   r.fr_lon_degr || ', ' ||  r.fr_lat_degr || ', 0.1' as coord
 from fl_v_rtes r
-where 1=1 /* add criteria later */
+where 1=1            -- add criteria later 
 order by r.fr_loc_id -- use ordering from location.seq_id
 limit 5 ;
 
@@ -187,11 +218,33 @@ where 1=1
 order by  r.to_loc_id ;
 -- note: ordering not strictly needed..
 
+ -- end testing code */ 
+
+-- routes for outpout
+With cr as (select 
+  -- chr(13)|| 
+  chr(10) lf 
+)
+select fl_f_loc_pmk ( r.fr_loc_id )  || cr.lf
+    || fl_f_lin_pmk ( r.rte_id)      || cr.lf
+    || fl_f_loc_pmk ( r.to_loc_id ) 
+from fl_rtes r 
+   , cr cr
+where 1=1 
+  and r.rte_id in (select o.rte_id from fl_v_rtes_outlist o )
+--  and r.rider_id in  ( 
+--       select rider_id from fl_rdrs where rider_name in (  '00Outdoor Man', '00Amauta', '00jaap43' , 'BSI' ) )
+order by r.fr_loc_id
+--limit 100
+; 
 
 -- end of kml file
 select '</Document> </kml>' as end_of_kml_file; 
 
 \o
+
+\echo  prevent dependencies hence remove view outlist
+drop view fl_v_rtes_outlist ;
 
 \echo .
 \echo check dat in file aalocs.kml

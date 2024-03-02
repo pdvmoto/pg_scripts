@@ -328,6 +328,17 @@ create table fl_stag (
 -- constraint seems to imply index by same name..
 -- alter table fl_stag add constraint fl_stag_pk primary key  ( seq_id ) ;
 
+\echo Data tables and Staging table are ready now LOAD ...
+-- -- -- -- -- -- -- -- -- -- 
+-- 
+-- LOAD ... at this point, data needs to be loaded 
+--
+-- -- -- -- -- -- -- -- -- -- 
+
+-- this helps the optimizer
+analyze fl_stag ; 
+
+
 -- -- -- 
 -- check sanity of data in staging table
 select seq_id, hiding_date, hiding_rider, lat_degr, lon_degr 
@@ -376,19 +387,30 @@ where h.hiding_rider = rp.rider_name
   and f.finder_rider = rp.rider_name
 order by upper(rider_name); 
 
+-- 
+\echo remove ampersands from desc bcse kml and xml cannot handle ampersands
+update fl_stag 
+set loc_desc = replace (loc_desc, '&', '+' ) 
+ where loc_desc like '%&%' 
+ ;
 
 -- store locations, first the mandatory fields, add optional fields later to avoid outer-joins
 \echo insert locations into fl_lctn
 insert into fl_lctn
-     ( loc_id, fles_id, hiding_id, hiding_date
+     ( loc_id, fles_id
+     , hiding_id, hiding_date
+     , finder_id, finder_date
      , lat_degr, lon_degr, loc_desc, city, prov )
 select seq_id, 1                                      -- dflt fles =>1
      , h.rider_id, to_date ( s.hiding_date_vc, 'dd-mm-yyyy')
+     , f.rider_id, to_date ( s.finder_date_vc, 'dd-mm-yyyy')
      , s.lat_degr, s.lon_degr, s.loc_desc, s.city, s.prov
 from fl_stag s
    , fl_rdrs h
+   , fl_rdrs f
 where 1=1
   and h.rider_name = s.hiding_rider
+  and f.rider_name = s.finder_rider
   and s.hiding_date is not null
   and s.lat_degr    is not null ; 
 
@@ -428,6 +450,12 @@ where 1=1
   and rv.to_loc_id = tl.loc_id ;
 
 update fl_rtes set dist_sdo = earth_distance(fr_earth, to_earth) / 1000  ; 
+
+-- -- -- -- at this point, data complete ? -- -- --
+
+analyze fl_rdrs ;
+analyze fl_rtes ;
+analyze fl_lctn ;
 
 --------------------------------------------------------
 --  DDL for View FL_V_LCTN
