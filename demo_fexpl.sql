@@ -5,7 +5,7 @@
 \echo .
 
 \echo .
-\echo need a parent and child set of tables, use catalog to generate some data
+\echo Creating tables..need a parent and child, use catalog to generate some data
 \echo .
 create table demo_fnc_par  
   ( p_id        bigint primary key
@@ -53,47 +53,112 @@ create or replace function fn_show_cnt ( bigint )
 returns text
 as
 $$
-select 'parent: ' || p.p_name || ' has ' || count (*) || ' related chds.'
+select 'sql_func: p: ' || p.p_name || ' has ' || count (*) || ' chds, and max: ' || max ( c_name ) || '.'
  from demo_fnc_par p
-    , demo_fnc_chk c
-where c.c_id = p.p_id
+    , demo_fnc_chd c
+where p.p_id = c.p_id
   and p.p_id = $1
 group by p.p_name ;
 $$
 language sql stable ;
 
+create or replace function fn_show_cnt_pl ( p_pid bigint )
+returns text
+stable 
+language plpgsql
+as
+$function$
+DECLARE
+  txt_result text := 'init result as blank';
+BEGIN
+select 'plpgsql_func: par: ' || p.p_name || ' has ' || count (*) || '  chds and max ' || max ( c_name ) || '.'
+into txt_result 
+ from demo_fnc_par p
+    , demo_fnc_chd c
+where c.p_id = p.p_id
+  and p.p_id = $1
+group by p.p_name ;
+
+ RAISE NOTICE 'fn_show_cnt_pl :p_id [%] result [%].', p_pid, txt_result ;
+
+return txt_result ;
+END ;
+$function$
+;
+
+\echo debug first, remvoe this whem finished
+select p.p_id, p.p_name, sum (c_id) as debug_sum, max ( c.c_name ) as debug_maxname 
+from demo_fnc_chd c
+   , demo_fnc_par p  
+where p.p_id = 11 
+and c.p_id = p.p_id  
+group by p.p_id, p.p_name  ;
+
+\echo debug stuff.. check first results
+\! read -p "hit enter to congtinue ..." abc
+
 
 \echo .
-\echo Count chd per par...
+\echo Count via query, chd per par...
 \echo .
-select 'parent: ' || p.p_name || ' has ' || count (*) || ' related chds.'
+select 'plain sql : par: ' || p.p_name || ' has ' || count (*) || ' chds and max ' || max ( c_name ) || '.' as plain_sql
  from demo_fnc_par p
-    , demo_fnc_chk c
-where c.c_id = p.p_id
-  and p.p_id = 11
+    , demo_fnc_chd c
+where c.p_id = p.p_id
+  and p.p_id = 11::bigint
 group by p.p_name ;
 
 
 explain ( analyze, dist)
-select 'parent: ' || p.p_name || ' has ' || count (*) || ' related chds.'
+select 'plain sql : par: ' || p.p_name || ' has ' || count (*) || ' chds and max ' || max ( c_name ) || '.' as plain_sql
  from demo_fnc_par p
-    , demo_fnc_chk c
-where c.oid = p.oid
-  and p.oid = 11
+    , demo_fnc_chd c
+where c.p_id = p.p_id
+  and p.p_id = 11::bigint
 group by p.p_name ;
 
 
-select 
-from demo_fnc_par
-where p_id = 11 ; 
+\echo .
+\echo reported the nr of chd for a parent, note the explain-plan, the effort
+\echo .
+\! read -p"hit enter to continue..." abc
 
+select  fn_show_cnt ( p.p_id ) as result_from_func_sql
+from demo_fnc_par p
+where p.p_id = 11 ;
+
+explain (analyze, dist ) 
+select  fn_show_cnt ( p.p_id ) as result_from_func_sql
+from demo_fnc_par p
+where p.p_id = 11::bigint ; 
+
+\echo .
+\echo now via sql_functioncall, note the explain-plan, the effort
+\echo .
+\! read -p"hit enter to continue..." abc
+
+
+select  fn_show_cnt_pl ( p.p_id ) as result_from_func_plpgsql
+from demo_fnc_par p
+where p.p_id = 11::bigint ;
+
+explain (analyze, dist ) 
+select  fn_show_cnt ( p.p_id ) as result_from_func_plpgsql
+from demo_fnc_par p
+where p.p_id = 11::bigint ; 
+
+\echo .
+\echo now via sql_functioncall, note the explain-plan, the effort
+\echo .
+\! read -p"hit enter to continue..." abc
 
 \echo .
 \echo .
 \echo ------------- demo done ------------------
 \echo .
-\! read -p "enter to cleanup or control C to keep objects and data" abc
+\! read -t 5 -p "enter to cleanup or control C to keep objects and data" abc
+\echo .
 
-drop table demo_fnc_chd ;
-drop table demo_fnc_par ;
+-- drop table demo_fnc_chd ;
+-- drop table demo_fnc_par ;
 
