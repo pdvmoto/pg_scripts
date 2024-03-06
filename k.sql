@@ -20,7 +20,7 @@ order by r.fr_loc_id ;
 
 CREATE OR REPLACE FUNCTION fl_f_loc_pmk ( p_loc_id integer )
  RETURNS text
- LANGUAGE sql
+ LANGUAGE plpgsql
 AS $function$
 DECLARE
   sql_stmnt TEXT;
@@ -59,6 +59,34 @@ END;
 $function$
 ;
 
+\echo creating fl_loc_pmk_sql create placemark with only sql
+
+-- try as only sql function, faster - didnt notice..
+CREATE OR REPLACE FUNCTION fl_loc_pmk_sql ( bigint)
+   RETURNS text  AS
+$$ 
+   With cr as (select /*chr(13)||*/ chr(10) lf )
+   select
+      '<Placemark>' || cr.lf
+   || '  <name>loc: ' || l.loc_id || ', ' || city || '  </name>' || cr.lf
+   || '  <description> ' || l.loc_desc  || cr.lf
+   ||                     ' hid: ' || l.hiding_name || ' ('|| l.hiding_id || ')' || cr.lf
+   ||                     ' dd: '  || to_char (hiding_date, 'YYYY-Mon-DD' )     || cr.lf
+   ||                     ' fnd: ' || l.finder_name || ' ('|| l.finder_id || ')' || cr.lf
+   ||                     ' dd: '  || to_char (l.finder_date, 'YYYY-Mon-DD' )   || cr.lf
+   || '  </description>'  || cr.lf
+   || '  <Point>'   || cr.lf
+   || '    <coordinates>' || l.lon_degr || ', '||  l.lat_degr || ',0.1 ' || '</coordinates>' || cr.lf
+   || '  </Point>' || cr.lf
+   || '</Placemark>' as location_placemark
+  --,  l.*
+  from fl_v_lctn_info l
+     , cr
+  where 1=1 
+    and l.loc_id = $1;
+$$ language sql stable;
+
+
 \echo creating fl_f_lin_pmk, placemark for line
 
 -- placemark for line: include rider, distance, date, destination
@@ -66,7 +94,7 @@ $function$
 -- or just draw extra plcmmrks.
 CREATE OR REPLACE FUNCTION fl_f_lin_pmk ( p_lin_id integer )
  RETURNS text
- LANGUAGE sql
+ LANGUAGE plpgsql
 AS $function$
 DECLARE
   sql_stmnt TEXT;
@@ -112,17 +140,37 @@ $function$
 ;
 
 -- View to select routes, criteria can be coded into the view
-
+-- all routes INTO Zld, with from + rte + to..
+-- plus all route OUTOF zld, with null, route, to
+-- then order by to-route to get correct orderiing in time
 create or replace view fl_v_rtes_outlist as (
-select r.rte_id
-from fl_rtes r
-   , ( select loc_id as loc_id
-         from fl_lctn
-        where upper (prov) = 'ZE'
-     )  l
- where r.fr_loc_id = l.loc_id
-    or r.to_loc_id = l.loc_id
-    );
+select rt_out.fr_loc_id, rt_out.rte_id, rt_out.to_loc_id -- route going out of zld
+from fl_rtes rt_out
+   , fl_lctn fr_loc
+where rt_out.fr_loc_id = fr_loc.loc_id 
+  and upper ( fr_loc.prov ) = 'ZE' 
+union 
+select rt_in.fr_loc_id, rt_in.rte_id, null  -- routes into Zld
+from fl_rtes rt_in
+   , fl_lctn  lto
+where rt_in.to_loc_id = lto.loc_id 
+  and upper ( lto.prov ) = 'ZE' 
+)
+;
+
+create or replace view fl_o as (
+select l.loc_id as seqord, 'loc' as type, l.loc_id as id 
+from fl_lctn l
+where (  l.loc_id in ( select loc_fr_id from fl_v_rte_info where upper (loc_fr_prov) = 'ZE' )
+      or l.loc_id in ( select loc_to_id from fl_v_rte_info where upper (loc_to_prov) = 'ZE' )
+      )
+union  
+select r.loc_fr_id, 'rte', r.rte_id
+from fl_v_rte_info  r
+where ( upper ( r.loc_fr_prov ) = 'ZE' or upper ( r.loc_to_prov ) = 'ZE' ) 
+)
+;
+
 
 \o aalocs.kml
 
@@ -231,9 +279,9 @@ select fl_f_loc_pmk ( r.fr_loc_id )  || cr.lf
 from fl_rtes r 
    , cr cr
 where 1=1 
-  and r.rte_id in (select o.rte_id from fl_v_rtes_outlist o )
---  and r.rider_id in  ( 
---       select rider_id from fl_rdrs where rider_name in (  '00Outdoor Man', '00Amauta', '00jaap43' , 'BSI' ) )
+--  and r.rte_id in (select o.rte_id from fl_v_rtes_outlist o )
+  and r.rider_id in  ( 
+       select rider_id from fl_rdrs where rider_name in (  '00Outdoor Man', '00Amauta', '00jaap43' , 'pdv_moto' ) )
 order by r.fr_loc_id
 --limit 100
 ; 
@@ -245,6 +293,7 @@ select '</Document> </kml>' as end_of_kml_file;
 
 \echo  prevent dependencies hence remove view outlist
 drop view fl_v_rtes_outlist ;
+drop view fl_o ;
 
 \echo .
 \echo check dat in file aalocs.kml
