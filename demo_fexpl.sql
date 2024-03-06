@@ -9,17 +9,17 @@
 \echo .
 create table demo_fnc_par  
   ( p_id        bigint primary key
-  , nspname     name 
+  , p_name      text
   )
-  split into 16 tablets 
+  split into 8 tablets 
 ;
 
 create table demo_fnc_chd 
-  ( oid       bigint primary key
+  ( c_id      bigint primary key
   , p_id      bigint 
-  , relname   name 
+  , c_name    text
   )
-  split into 16 tablets 
+  split into 8 tablets 
 ; 
 
 -- note pk of chk does not contain parent, we deliberately spread out the data
@@ -39,10 +39,10 @@ insert into demo_fnc_par
 
 \echo .
 \echo children...
-insert into demo_fnc_chd 
-  select n.oid     as p_id
-       , c.oid     as c_id
-       , c.relname as c_name
+insert into demo_fnc_chd  ( c_id, p_id, c_name )
+  select c.oid     
+       , n.oid    
+       , c.relname 
   from pg_class c
      , pg_namespace n
   where c.relnamespace = n.oid ;
@@ -56,8 +56,8 @@ $$
 select 'parent: ' || p.p_name || ' has ' || count (*) || ' related chds.'
  from demo_fnc_par p
     , demo_fnc_chk c
-where c.oid = p.oid
-  and p.oid = $1
+where c.c_id = p.p_id
+  and p.p_id = $1
 group by p.p_name ;
 $$
 language sql stable ;
@@ -69,8 +69,8 @@ language sql stable ;
 select 'parent: ' || p.p_name || ' has ' || count (*) || ' related chds.'
  from demo_fnc_par p
     , demo_fnc_chk c
-where c.oid = p.oid
-  and p.oid = 11
+where c.c_id = p.p_id
+  and p.p_id = 11
 group by p.p_name ;
 
 

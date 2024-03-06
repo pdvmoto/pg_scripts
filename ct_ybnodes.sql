@@ -9,6 +9,10 @@ then link details to that parent.
 function : f_chk_nodes: catch data from yb_servers(), return nr-detected
 script: ybx_pingnodes : loop-over and ping nodes and check IP and up-status.
 
+here is how to update the ip, plse improve...
+docker exec node7 ysqlsh -h node7 -X -c  'update ybx_chknode set public_ip =  inet_server_addr() where host='\''node7'\'' and run_id = 1  ; '
+
+
 */
 
 /*
@@ -58,13 +62,18 @@ BEGIN
   select max ( id ) from ybx_chkrun /* check for current !  */ INTO n_runid ;
 
   sql_stmnt := 'insert into ybx_chknode ( '
-    || ' run_id    , host, num_connections, node_type, uuid '
+    || ' run_id    , host, num_connections, node_type, uuid, public_ip '
     || ' ) select '  
-    || n_runid || ', host, num_connections, node_type, uuid  from yb_servers () ; '  ;
+    || n_runid || ', host, num_connections, node_type, uuid,  ''' ||  /* inet_server_addr() */ 'upd-IP-here' || ''''
+    || ' from yb_servers () ; '  ;
 
   RAISE NOTICE 'f_chknodes : chking nodes , stmnt [%] ', sql_stmnt ;
 
   EXECUTE sql_stmnt ;
+
+  RAISE NOTICE 'f_chknodes : make sure every node gets updated IP.'  ;
+
+  select count (*) from ybx_chknode where run_id = n_runid into n_cnt ; 
 
   RETURN n_cnt ;  /* later: find count */
 
