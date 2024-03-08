@@ -4,6 +4,17 @@
 \echo demo explain-analyze-dist and find out..
 \echo .
 
+/*  ----- notes ------
+
+
+ - for postgres, remove the split and the dist. consider using :x or other variables for this
+ - 
+
+
+    ------------------ 
+*/
+
+-- always show version just in case
 select version() ;
 
 \echo .
@@ -49,8 +60,13 @@ insert into demo_chd  ( c_id, p_id, c_name )
      , pg_namespace n
   where c.relnamespace = n.oid ;
 
-analyze demo_par ;
-analyze demo_chd ;
+--analyze demo_par ;
+--analyze demo_chd ;
+
+\echo .
+\echo two tables with some data and minimal indexing.
+\echo .
+\! read -t9 -p"Hit Enter to continue..." abc
 
 \echo .
 \echo ------ start of demo statements ------- 
@@ -58,8 +74,8 @@ analyze demo_chd ;
 \echo Simple select of few rows.. 
 
 \set ECHO all
-                        select * from demo_par ;
-explain (analyze, dist) select * from demo_par ;
+                           select * from demo_par ;
+explain (analyze, dist, buffers) select * from demo_par ;
 \set ECHO none
 
 \echo .
@@ -69,8 +85,8 @@ explain (analyze, dist) select * from demo_par ;
 \! read -p "hit enter to continue..." abc
 
 \set ECHO all
-                        select * from demo_par where p_id = 11 ;
-explain (analyze, dist) select * from demo_par where p_id = 11 ;
+                           select * from demo_par where p_id = 11 ;
+explain (analyze, dist, buffers) select * from demo_par where p_id = 11 ;
 \set ECHO none
 
 \echo .
@@ -80,8 +96,8 @@ explain (analyze, dist) select * from demo_par where p_id = 11 ;
 \! read -p "hit enter to continue..." abc
 
 \set ECHO all
-                        select * from demo_chd where p_id = 11 ;
-explain (analyze, dist) select * from demo_chd where p_id = 11 ;
+                           select * from demo_chd where p_id = 11 ;
+explain (analyze, dist, buffers) select * from demo_chd where p_id = 11 ;
 \set ECHO none
 
 \echo .
@@ -91,8 +107,8 @@ explain (analyze, dist) select * from demo_chd where p_id = 11 ;
 \! read -p "hit enter to continue..." abc
 
 \set ECHO all
-                        select * from demo_chd where c_name like '%' ;
-explain (analyze, dist) select * from demo_chd where c_name like '%' ;
+                           select * from demo_chd where c_name like '%' ;
+explain (analyze, dist, buffers) select * from demo_chd where c_name like '%' ;
 \set ECHO none
 
 \echo .
