@@ -74,8 +74,8 @@ insert into demo_chd  ( c_id, p_id, c_name )
 \echo Simple select of few rows.. 
 
 \set ECHO all
-                           select * from demo_par ;
-explain (analyze, dist, buffers) select * from demo_par ;
+                                 select * from demo_par ;
+explain (analyze, dist, debug, buffers) select * from demo_par ;
 \set ECHO none
 
 \echo .
@@ -85,8 +85,8 @@ explain (analyze, dist, buffers) select * from demo_par ;
 \! read -p "hit enter to continue..." abc
 
 \set ECHO all
-                           select * from demo_par where p_id = 11 ;
-explain (analyze, dist, buffers) select * from demo_par where p_id = 11 ;
+                                 select * from demo_par where p_id = 11 ;
+explain (analyze, dist,debug,  buffers) select * from demo_par where p_id = 11 ;
 \set ECHO none
 
 \echo .
@@ -96,8 +96,8 @@ explain (analyze, dist, buffers) select * from demo_par where p_id = 11 ;
 \! read -p "hit enter to continue..." abc
 
 \set ECHO all
-                           select * from demo_chd where p_id = 11 ;
-explain (analyze, dist, buffers) select * from demo_chd where p_id = 11 ;
+                                 select * from demo_chd where p_id = 11 ;
+explain (analyze, dist, debug, buffers) select * from demo_chd where p_id = 11 ;
 \set ECHO none
 
 \echo .
@@ -107,8 +107,8 @@ explain (analyze, dist, buffers) select * from demo_chd where p_id = 11 ;
 \! read -p "hit enter to continue..." abc
 
 \set ECHO all
-                           select * from demo_chd where c_name like '%' ;
-explain (analyze, dist, buffers) select * from demo_chd where c_name like '%' ;
+                                 select * from demo_chd where c_name like '%' ;
+explain (analyze, dist, debug, buffers) select * from demo_chd where c_name like '%' ;
 \set ECHO none
 
 \echo .
