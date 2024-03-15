@@ -118,6 +118,17 @@ explain (analyze, dist, debug, buffers) select * from demo_chd where c_name like
 \! read -p "hit enter to continue..." abc
 
 
+\set ECHO all
+                                        select p_id, count (*) cnt, sum ( c_id ) total from demo_chd group by p_id ;
+explain (analyze, dist, debug, buffers) select p_id, count (*) cnt, sum ( c_id ) total from demo_chd group by p_id ;
+\set ECHO none
+
+\echo .
+\echo aggregate of chd per par-id, on single table of chd table using like c_name, no index, should scan entire table
+\echo storage calls should correspond to whole table ?
+\echo
+\! read -p "hit enter to continue..." abc
+
 \echo ------------- demo done ------------------
 \echo .
 \! read -t 9 -p "enter to cleanup or control C to keep objects and data" abc

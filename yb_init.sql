@@ -23,19 +23,24 @@ alter database yugabyte set yb_enable_base_scans_cost_model to true;
 
 \echo view to inspect yb-properties of tables
 create or replace view ybx_tblinfo as (
-select c.oid, c.relname
---, yb_table_properties(c.oid) as props
+select c.oid
+, n.nspname as schemaname
+, c.relname
+, pg_catalog.pg_get_userbyid(c.relowner) as tableowner
 , tp.num_tablets
 , tp.num_hash_key_columns
 , tp.is_colocated
-, tp.tablegroup_oid 
+, tp.tablegroup_oid
 , tp.colocation_id
 , yb_is_local_table ( c.oid) islocal
-from pg_class c
-, yb_table_properties(c.oid) tp 
-where 1=1
-and c.relkind in ( 'r', 'i' )
-);
+--, c.*
+from   pg_catalog.pg_class c 
+left join pg_catalog.pg_namespace n on n.oid = c.relnamespace 
+join  yb_table_properties(c.oid) tp on 1=1
+where c.relkind in ('r', 'i', 't', 'S','m') )
+;
+
+
 
 \echo finally, report the database, and show if it is colocated
 \echo .
