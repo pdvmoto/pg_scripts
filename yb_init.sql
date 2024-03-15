@@ -32,6 +32,17 @@ SELECT '0000' || lpad(to_hex(d.oid::int), 4, '0') || '00003000800000000000' || l
    AND d.datname=current_database();
 $$ LANGUAGE SQL;
 
+CREATE OR REPLACE FUNCTION get_table_id(oid_p oid ) RETURNS VARCHAR
+AS $$
+SELECT '0000' || lpad(to_hex(d.oid::int), 4, '0') || '00003000800000000000' || lpad(to_hex(c.oid::int), 4, '0') tableid
+  FROM pg_class c, pg_namespace n, pg_database d
+ WHERE 1=1
+   AND c.oid = $1
+   AND c.relnamespace = n.oid
+   AND d.datname=current_database();
+$$ LANGUAGE SQL;
+
+
 \echo view to inspect yb-properties of tables
 create or replace view ybx_tblinfo as (
 select c.oid
@@ -45,6 +56,7 @@ select c.oid
 , tp.tablegroup_oid
 , tp.colocation_id
 , yb_is_local_table ( c.oid) islocal
+, get_table_id ( c.oid )     table_id
 , case when n.nspname not in ( 'pg_catalog', 'information_schema')
        then pg_table_size(c.oid )
        else null
