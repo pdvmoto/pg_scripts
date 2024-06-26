@@ -1,14 +1,33 @@
 
 
-even kort voor de standup: 
- - PB : bezig met testen bastion-vervanging door "awsume", nog steeds.
- - PB : om 0830 het 3-maandelijks (?) overleg met edwin corstanje, ik maak notities
- - TK : bezig met laatste 2 pb-basebackups (replicas) 
- - TK : lopend ticket 2061: vervanging archivering event_history
- - TK : checking overige sequences. lastiger dan gedacht. dependencies niet altijd duidelijk.
+metrics lab:
+
+cloned from franck:
+git clone https://github.com/FranckPachot/yb-metrics-lab
+
+up via 1 command, docker componse from readme.
+docker compose up -d
+
+ysql running on 1 node, locahost:5433
+ysqlsh -h localhost 
+
+metrics at this endpoint: 
+localhost:9090
+
+simplest measure: rows_inserted
+
+grafana is here, admin/admin:
+http://localhost:3000/
 
 
- 
+Q:
+
+q: so many metrics, which ones are simple, useful
+q: how to connect hit to my own cluster ?
+
+
+
+-- -- --
 Automated failover for yb-master.
 
 Aim: Keep sufficient master-processes running when yb-masters fail or drop off the network.
@@ -59,4 +78,10 @@ with funny enought the dead-nodes on top.
 
 Hence the Request, for yb-admin and yugatool: Always present in order of host(name) ? 
 
+
+
+-- -- -
+
+views my-adv
+:f
 

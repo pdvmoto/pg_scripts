@@ -53,6 +53,9 @@ psql -X postgresql://root@localhost:26257,localhost:26258,localhost:26259/defaul
     select count (*) nr_records_after from t; 
 
     -- show info on table...
+    \echo .
+    \echo  show info on table...
+    \echo .
 
     \set ECHO all
 
@@ -62,6 +65,7 @@ psql -X postgresql://root@localhost:26257,localhost:26258,localhost:26259/defaul
     where t.table_id = s.table_id
       and name = 't' ;
 
+    /*****
     select t.name, t.table_id, r.range_id, r.lease_holder
     , r.replicas, round (r.range_size / (1024*1024))  as MB
     from crdb_internal.ranges r
@@ -69,6 +73,7 @@ psql -X postgresql://root@localhost:26257,localhost:26258,localhost:26259/defaul
     where r.table_id = t.table_id
       and t.name = 't'
     order by t.name, range_id ;
+    ****/
 
 EOF
 
