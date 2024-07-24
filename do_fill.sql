@@ -1,5 +1,5 @@
 
-select f_fill_t (100), f_fill_t_rndm (100) , now () ; 
+select f_fill_t (500), f_fill_t_rndm (500) , now () ; 
 
 \watch 1
 
