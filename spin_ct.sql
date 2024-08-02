@@ -15,11 +15,11 @@ DO $$
   DECLARE
    dt_starttime		timestamp ; 
    i_counter     	integer := 1 ;
-   n_sec         	integer := 10 ; 
+   n_sec         	integer := 120 ; 
    n_per_sec 		  real ; 
    txt_tbl1       text := 'create table ' ; 
    txt_tbl2       text := ' ( id bigint primary key, payload text ) ' ; 
-   txt_tbl3       text := ' split into 1 tablets ; ' ;
+   txt_tbl3       text := ' split into 8 tablets ; ' ;
    txt_tblname    text ; 
    txt_sql        text ;
 BEGIN
@@ -42,6 +42,8 @@ BEGIN
 
       execute txt_sql ; 
 
+      -- execute 'insert into ' || txt_tblname || ' select id, payload from t limit 2000; ' ;
+
       i_counter := i_counter + 1 ; 
 
     END LOOP ;  
@@ -60,15 +62,15 @@ $$;
 
 \timing on
 
-insert into ds01 select id, payload from t limit 1000;
-insert into ds02 select id, payload from t limit 1000;
-insert into ds03 select id, payload from t limit 1000;
-insert into ds04 select id, payload from t limit 1000;
-insert into ds05 select id, payload from t limit 1000;
-insert into ds06 select id, payload from t limit 1000;
-insert into ds07 select id, payload from t limit 1000;
-insert into ds08 select id, payload from t limit 1000;
-insert into ds09 select id, payload from t limit 1000;
+insert into ds01 select id, payload from t limit 2000;
+insert into ds02 select id, payload from t limit 2000;
+insert into ds03 select id, payload from t limit 2000;
+insert into ds04 select id, payload from t limit 2000;
+insert into ds05 select id, payload from t limit 2000;
+insert into ds06 select id, payload from t limit 2000;
+insert into ds07 select id, payload from t limit 2000;
+insert into ds08 select id, payload from t limit 2000;
+insert into ds09 select id, payload from t limit 2000;
 
 \timing off
 
