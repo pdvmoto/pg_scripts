@@ -1,7 +1,7 @@
 
 
 /*
-   spin while creating tables, max sec, and max nr tables
+   spin while dropping  tables called dsnn, max sec, and max nr tables
 
 
   mapped volue and no-colocated tables: 20 in 5 sec.
@@ -15,11 +15,11 @@ DO $$
   DECLARE
    dt_starttime		timestamp ; 
    i_counter     	integer := 1 ;
-   n_sec         	integer := 60 ; 
+   n_sec         	integer := 30 ; 
    n_per_sec 		  real ; 
-   txt_tbl1       text := 'create table ' ; 
-   txt_tbl2       text := ' ( id bigint primary key, payload text ) ' ; 
-   txt_tbl3       text := ' split into 8 tablets ; ' ;
+   txt_tbl1       text := 'drop table if exists  ' ; 
+   txt_tbl2       text := ' ';  
+   txt_tbl3       text := ' ; ' ;
    txt_tblname    text ; 
    txt_sql        text ;
 BEGIN
@@ -38,11 +38,9 @@ BEGIN
 
       txt_sql := txt_tbl1 || txt_tblname || txt_tbl2 || txt_tbl3 ; 
 
-      RAISE NOTICE 'spin (ct): create stmnt: % counter: % ' , txt_sql, i_counter ; 
+      RAISE NOTICE 'spin (ct): doing stmnt: % counter: % ' , txt_sql, i_counter ; 
 
       execute txt_sql ; 
-
-      -- execute 'insert into ' || txt_tblname || ' select id, payload from t limit 20000; ' ;
 
       i_counter := i_counter + 1 ; 
 
@@ -60,19 +58,7 @@ $$;
 -- assume t (from demo_fill) exist, 
 -- and put some data in
 
-\timing on
-
-insert into ds01 select id, payload from t limit 2000;
-insert into ds02 select id, payload from t limit 2000;
-insert into ds03 select id, payload from t limit 2000;
-insert into ds04 select id, payload from t limit 2000;
-insert into ds05 select id, payload from t limit 2000;
-insert into ds06 select id, payload from t limit 2000;
-insert into ds07 select id, payload from t limit 2000;
-insert into ds08 select id, payload from t limit 2000;
-insert into ds09 select id, payload from t limit 2000;
-
-\timing off
+\d 
 
 \echo note the nr of tables and the timing...
 

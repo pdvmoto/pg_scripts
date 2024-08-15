@@ -5,7 +5,7 @@
 # set -v -x 
 
 # sleep, defult is 0, otherwise $1
-n_sec_sleep=0
+n_sec_sleep=1
 n_sec_sleep="${1:-$n_sec_sleep}"
 
 echo do_fill.sh: sleep value is $n_sec_sleep
@@ -20,7 +20,7 @@ do
   ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?connect_timeout=2 <<EOF
   
     \set QUIET on
-    \timing off
+    \timing on
     \pset footer off
     \t
 

@@ -20,7 +20,7 @@ echo do_ashrep.sh: start $n_sec_start sec ago and take $n_sec_intvl sec interval
 # pick up the host name...
 export hostnm=`hostname`
 
-ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?connect_timeout=2 <<EOF
+ysqlsh -X postgresql://yugabyte@localhost:5432,localhost:5433,localhost:5434?connect_timeout=2 <<EOF
 
   insert into ybx_ash_rep ( remark_txt, first_dt, last_dt ) 
   select 'report from script do_ashrep.sql' 
@@ -32,7 +32,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?con
 
   \timing on
 
-  with intv as 
+  with intv as  /* q01 from and to */
   ( select first_dt, last_dt 
     from ybx_ash_rep r where r.id = ( select max (r2.id) from ybx_ash_rep r2 )
   )
@@ -45,7 +45,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?con
   group by 1, 2, 3;
         
 
-  with intv as 
+  with intv as  /* q02 crosstab nrs*/
   ( select first_dt, last_dt 
     from ybx_ash_rep r where r.id = ( select max (r2.id) from ybx_ash_rep r2 )
   )
@@ -62,7 +62,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?con
   ;
 
   -- busiest nodes in sample
-  with intv as 
+  with intv as  /* q03 busiest nodes*/
   ( select first_dt, last_dt 
     from ybx_ash_rep r where r.id = ( select max (r2.id) from ybx_ash_rep r2 )
   )
@@ -79,7 +79,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?con
   order by a.host ;
 
 
-  with intv as 
+  with intv as  /* q04 busiest components*/
   ( select first_dt, last_dt 
     from ybx_ash_rep r where r.id = ( select max (r2.id) from ybx_ash_rep r2 )
   )
@@ -98,7 +98,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?con
   ;
 
   -- busiest events
-  with intv as 
+  with intv as  /* q05 busiest class, type, event p host */
   ( select first_dt, last_dt 
     from ybx_ash_rep r where r.id = ( select max (r2.id) from ybx_ash_rep r2 )
   )
@@ -119,7 +119,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?con
   \! echo .
   \! echo now the busiest tablets per host.
   \! echo .
-  with intv as 
+  with intv as  /* q06 busiest tablets and tables */
   ( select first_dt, last_dt 
     from ybx_ash_rep r where r.id = ( select max (r2.id) from ybx_ash_rep r2 )
   )
@@ -140,10 +140,10 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?con
   -- and wait_event_component not in ('YCQL')
   group by a.host, a.wait_event_aux, yt.ysql_schema_name, yt.table_name
   order by 1 desc, 2
-  limit 30 ;
+  limit 40 ;
 
   -- find queries, and later: top-root-req, to see if many rreq
-  with intv as 
+  with intv as  /* q10 qry per root_request */
   ( select first_dt, last_dt 
     from ybx_ash_rep r where r.id = ( select max (r2.id) from ybx_ash_rep r2 )
   )
@@ -160,14 +160,14 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?con
   and   ya.sample_time between i.first_dt and i.last_dt
   and   ya.query_id = q.queryid
   and   ya.root_request_id::text not like '000%'
-  --and ya.root_request_id::text like 'd1dc9%'
+  --and   ya.root_request_id::text like 'd1dc9%'
   group by ya.query_id, q.query
   order by 1 desc
-  limit 20;
+  limit 40;
 
 
   -- try looking for qry via id, using saved pgs_stmnt
-  with intv as 
+  with intv as  /* q11 qry per root-req and per qry  */
   ( select first_dt, last_dt 
     from ybx_ash_rep r where r.id = ( select max (r2.id) from ybx_ash_rep r2 )
   )
@@ -185,7 +185,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?con
   and   ya.root_request_id::text  not   like '000%'
   group by ya.root_request_id , ya.query_id
   order by 1 desc
-  limit 20;
+  limit 40;
 
 EOF
 
