@@ -151,7 +151,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5432,localhost:5433,localhost:5434?con
       --, min (sample_time) , max(sample_time)
       , count ( distinct ya.root_request_id  )    nr_rreq
       , ya.query_id                               top_qry
-      , substr ( q.query, 1, 200)              as Query
+      , substr ( replace ( q.query, chr(10), ' '), 1, 200)  as Query
       --, max ( substr ( ya.query, 1, 200)  )  as Query
   from ybx_ash      ya
      , ybx_pgs_stmt q
@@ -175,7 +175,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5432,localhost:5433,localhost:5434?con
       --, min (sample_time) , max(sample_time)
       , substr ( ya.root_request_id::text, 1, 9)    as    top_root_req
       , ya.query_id                                 as    top_qry
-      , max ( substr ( query, 1, 100)  )            as    Query
+      , max ( substr ( replace ( query, chr(10), ' ' ), 1, 130)  )            as    Query
   from ybx_ash      ya
      , ybx_pgs_stmt q
      , intv         i
@@ -186,6 +186,42 @@ ysqlsh -X postgresql://yugabyte@localhost:5432,localhost:5433,localhost:5434?con
   group by ya.root_request_id , ya.query_id
   order by 1 desc
   limit 40;
+
+  -- try looking for qry and PID
+  with intv as  /* q11 qry per root-req and per qry  */
+  ( select first_dt, last_dt 
+    from ybx_ash_rep r where r.id = ( select max (r2.id) from ybx_ash_rep r2 )
+  )
+  select count (*)
+      , ya.pid                                                        as    top_pid
+      , ya.query_id                                                   as    top_qry
+      , max ( substr ( replace ( query, chr(10), ' ' ), 1, 130)  )    as    Query
+  from ybx_ash      ya
+     , ybx_pgs_stmt q
+     , intv         i
+  where 1=1
+  and   ya.sample_time between i.first_dt and i.last_dt
+  and   q.queryid                 =     ya.query_id
+  and   ya.root_request_id::text  not   like '000%'
+  group by ya.pid, ya.query_id
+  order by 1 desc
+  limit 40;
+
+  with intv as  /* q02 final xtab nrs*/
+  ( select first_dt, last_dt 
+    from ybx_ash_rep r where r.id = ( select max (r2.id) from ybx_ash_rep r2 )
+  )
+  select
+    to_char ( a.sample_time, 'DDD DY HH24:MI:00') as     dt_hr
+  ,            a.host
+  , count (*)  smpls_per
+  from ybx_ash a, intv i 
+  where 1=1
+  --and wait_event_component not in ('YCQL')
+  and a.sample_time between i.first_dt and i.last_dt
+  group by 2, 1     /* host , to_char ( a.sample_time, 'DDD DY HH24:MI:00') */
+  order by 1, 2 \crosstabview
+  ;
 
 EOF
 

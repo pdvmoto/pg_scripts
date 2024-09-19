@@ -64,10 +64,13 @@ select c.oid
 from   pg_catalog.pg_class c
 left join pg_catalog.pg_namespace n on n.oid = c.relnamespace
 join  yb_table_properties(c.oid) tp on 1=1
-where c.relkind in ('r', 'i', 't', 'm', 'S') 
+where c.relkind in ('r', 'i', 'm') 
 )
 ;
 
+-- activate cron if present (check ybflag settings)
+create extension pg_cron ; 
+grant usage on schema cron to yugabyte ; 
 
 
 \echo finally, report the database, and show if it is colocated

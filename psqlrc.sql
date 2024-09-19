@@ -35,6 +35,9 @@
 
 \set   split 'split into 8 tablets '
 
+\set ybxl 'select * from ybx_log order by 2 ;'
+\set ybxl 'select host, to_char  (  logged_dt, ''HH24:MI:SS'') as dt, component, ela_ms, info_txt from ybx_log order by logged_dt ; '
+
 -- some COCKROACH specifics
 -- \set x 'explain analyze (distsql) '
 -- \set servers_old 'select * from crx_vnodes order by ndname ;'

@@ -1,5 +1,4 @@
 
-
 /*
    spin while creating tables, max sec, and max nr tables
 
@@ -42,7 +41,7 @@ BEGIN
 
       execute txt_sql ; 
 
-      -- execute 'insert into ' || txt_tblname || ' select id, payload from t limit 20000; ' ;
+      execute 'insert into ' || txt_tblname || ' select id, payload from t limit 200; ' ;
 
       i_counter := i_counter + 1 ; 
 
