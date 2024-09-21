@@ -53,8 +53,11 @@ $$
 -- check, find results in ybx_log
 select ybx_testcron ( 1 )  ;
 
--- schedule a job..
+-- schedule a test job..
 select cron.schedule ('* * * * *', $$ select ybx_testcron(); $$) ;
+
+-- schedule the logging of tab-sizes
+select cron.schedule ('*/5 * * * *', $$ select ybx_get_tablog(); $$) ;
 
 select * from cron.job;
 

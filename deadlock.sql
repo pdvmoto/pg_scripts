@@ -37,10 +37,16 @@ CREATE TABLE dl ( dl_id numeric, dl_payload VARCHAR(32) ) ;
 
 \set AUTOCOMMIT off 
 
+BEGIN ;
+
 INSERT INTO dl VALUES ( 1, '1st sess: record 1, first' );
 INSERT INTO dl VALUES ( 2, '1st sess: record 2, second' );
 
 COMMIT ;
+
+END;
+
+BEGIN ;
 
 UPDATE dl SET dl_payload = '1st sess: upd_first record' WHERE dl_id = 1 ;
 
@@ -58,9 +64,10 @@ select '
   Copy/Paste the following two update-statments into 2nd session,
   the session will hang on the 2nd line, but no errors yet...
 
-  UPDATE dl SET dl_payload = ''2nd sess: just update second''  WHERE dl_id = 2;
-
-  UPDATE dl SET dl_payload = ''2nd sess: This causes hangup'' WHERE dl_id = 1;
+  BEGIN;
+  UPDATE dl SET dl_payload = ''2nd sess: update second''  WHERE dl_id = 2;
+  UPDATE dl SET dl_payload = ''2nd sess: cause hangup'' WHERE dl_id = 1;
+  END ;
 
   See 2nd session hang....then hit return here to continue 1st session.
 
@@ -78,6 +85,8 @@ select '
 ' as docu ; 
 
 UPDATE dl SET dl_payload = '1st sess: upd_2nd_while locked' WHERE dl_id = 2;
+
+END ;
 
 select ' 
 /* -----------------------------------------------------------

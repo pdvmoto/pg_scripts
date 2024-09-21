@@ -223,6 +223,9 @@ ysqlsh -X postgresql://yugabyte@localhost:5432,localhost:5433,localhost:5434?con
   order by 1, 2 \crosstabview
   ;
 
+  -- cleanup
+  delete from ybx_ash_rep ; 
+
 EOF
 
 
