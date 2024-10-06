@@ -66,6 +66,7 @@ EOF
   if [ $? -eq 0 ] 
   then 
     echo "psql done, ok"  > /dev/null
+    sleep $1
   else 
     echo "psql error, sleep 1 to allow control C" 
     sleep 2
