@@ -18,11 +18,11 @@ do
 
 # ysqlsh -X -h node2  <<EOF
 # psql -X <<EOF
-# ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?connect_timeout=2 <<EOF
-  psql -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?connect_timeout=2 <<EOF
+# psql -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?connect_timeout=2 <<EOF
+  ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?connect_timeout=2 <<EOF
   
     \set QUIET on
-    \timing on
+    \timing off
     \pset footer off
     \t
 

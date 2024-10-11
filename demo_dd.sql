@@ -1,9 +1,9 @@
 
--- show 4 nodes
+-- show nodes
 
 select host, port, uuid from yb_servers () order by host ;
 
-\! read -p "nr of servers in this cluster" abc 
+\! read -p "nr of nodes in this cluster" abc 
 
 -- show nr tablets
 \echo all
@@ -19,7 +19,7 @@ select count (*) nr_local_tablets from yb_local_tablets ;
 \! echo .
 \! echo .
 
-\! echo "create table id bigint primary key, payload text ) split into 128 tablets ; " 
+\! echo "create table ( id bigint primary key, payload text ) split into 128 tablets ; " 
 \echo  all
 create table t128 ( id bigint primary key, payload text ) split into 128 tablets ; 
 \echo off
@@ -39,5 +39,12 @@ select count (*) nr_local_tablets from yb_local_tablets ;
 \! echo .
 \! read -p "now show additional ativity in sar and docker" abc
 \! echo .
+\! echo .
+\! echo The additional components, tablets, and their RAFT-communication are visible.
+\! echo On a sizable system this counts..
+\! echo .
+\! echo Engineering-tip: minimize NR of components.
+\! echo .
+\! echo and if you start with 42 nodes, try not to create 42 tablets for each table...
 \! echo .
 
