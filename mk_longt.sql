@@ -86,7 +86,7 @@ from ybx_tblinfo
 where relname like 't\____'
 order by size_bytes ; 
 
-\! read -p "now about 200M in both tables ... " abc
+\! read -p "now about 100M in both tables ... " abc
 
 select ' end of space demo ... ? '|| chr(10) || ' Wait until compression kicks in.. ' as results ;
 

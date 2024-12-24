@@ -57,7 +57,7 @@ select ybx_testcron ( 1 )  ;
 select cron.schedule ('* * * * *', $$ select ybx_testcron(); $$) ;
 
 -- schedule the logging of tab-sizes
-select cron.schedule ('*/5 * * * *', $$ select ybx_get_tablog(); $$) ;
+select cron.schedule ('*/4 * * * *', $$ select ybx_get_tablog(); $$) ;
 
 select * from cron.job;
 
