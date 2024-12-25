@@ -7,6 +7,20 @@
 #
 # fill two timestamps with first and last timestamp to report between
 #
+#
+# todo: find longest running sql from timing of root_req ...
+# select a.root_request_id, a.query_id
+# , min ( sample_time), max (sample_time )	
+# ,  ( max ( sample_time) -  min (sample_time )) as itervr
+# ,  extract ( epoch from  max ( sample_time) -  min (sample_time ) ) as sec 
+# from ybx_ash a
+# where a.root_request_id::text not like '0000%'
+# and query_id not between  -100 and 100 
+# group by a.root_request_id , a.query_id
+# order by sec desc ;
+# 
+#
+#
 # set -v -x 
 
 # arg1 defaults to 900 sec or 15min  $1
@@ -207,6 +221,29 @@ ysqlsh -X postgresql://yugabyte@localhost:5436,localhost:5433,localhost:5434?con
   order by 1 desc
   limit 40;
 
+  -- slowest run  + count of each query
+  with intv as  /* q02 final xtab nrs*/
+  ( select first_dt, last_dt 
+    from ybx_ash_rep r where r.id = ( select max (r2.id) from ybx_ash_rep r2 )
+  )
+  select /* a.root_request_id, */ a.query_id
+  --, min ( sample_time), max (sample_time )	
+  --,  ( max ( sample_time) -  min (sample_time )) as itervr
+  ,  extract ( epoch from  max ( sample_time) -  min (sample_time ) ) as max_sec 
+  , count (*) nr_occ
+  , yps.query
+  from ybx_ash a
+     , ybx_pgs_stmt yps 
+     , intv i
+  where 1=1
+  and a.sample_time between i.first_dt and i.last_dt
+  and yps.queryid = a.query_id
+  and a.root_request_id::text not like '0000%'
+  and query_id not between  -100 and 100 
+  group by /* a.root_request_id , */ a.query_id, yps.query
+  having extract ( epoch from  max ( sample_time) -  min (sample_time ) )  > 1
+  order by max_sec desc ;
+
   with intv as  /* q02 final xtab nrs*/
   ( select first_dt, last_dt 
     from ybx_ash_rep r where r.id = ( select max (r2.id) from ybx_ash_rep r2 )
@@ -222,6 +259,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5436,localhost:5433,localhost:5434?con
   group by 2, 1     /* host , to_char ( a.sample_time, 'DDD DY HH24:MI:00') */
   order by 1, 2 \crosstabview
   ;
+
 
   -- cleanup
   delete from ybx_ash_rep ; 

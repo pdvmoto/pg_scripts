@@ -1,27 +1,47 @@
 -- 
--- mk_osdata.sql: tables to collect os-data for logging
+-- mk_osdata.sql: tables to collect os-data, univers, masters, tservers.
 -- 
--- other files : unames.sh, unames.sql : collect data using uname
+-- other files : unames.sh, unames.sql, do_snap.sh : collect data using uname and sql
 -- 
 -- get os data from program or file into tbl, then parse..
 -- we start by collecting "sample data".
 -- the abstract of "parent tables" can wait: Host, Cluster, Universe, Master, TSever..
 -- 
 -- todo datamodel:
---  - universe and cluster ? collect the json string into ybx_unvr_log
---  - parent tables for node, mster, tserver, with static data (names, OS, UUID), no log-time
---  - introduce "snapshot_id": point-in-time where multiple data (node, master, tserver) is colletcted
+--  - nr_postgres_procs : separate count for postgres procs ? : TBD
+--  - universe and cluster ? collect the json string into ybx_unvr_log : done
+--  - parent tables for node, mster, tserver, with static data (names, OS, UUID), no log-time: part done
+--  - introduce "snapshot_id": point-in-time where multiple data (node, master, tserver) is colletcted: done
 --  - introduce master-records: host (name, ip, os, processors..) univese, cluster, also : table.. ?
---  - loging for master and tserver entitis separate tables ? scrape from yb-admin and yb-functions()
---  - nr_postgres_procs : separate count for postgres procs ? 
+--  - loging for master and tserver entities separate tables ? scrape from yb-admin and yb-functions() : done
+--
+--  - tables + indexes: could be part of snapshot but only for "global" info. so no.
+--    Better collect info on each host/node/tsrvr. And generate the mst info as needed
+--      - ybx_tabl_mst
+--      - ybx_tabl_log (from ybx_tblinfo, low freq)
+--        - ybx_tabl_log_stats ( per host, per log_dt, e.g. per ash-loop?, highter freq )
+--      - ybx_indx_mst
+--      - ybx_indx_log ( per snap )
+--        - ybx_tabl_log_stats ( per host )
+--    note: bcse tables and indexes can be discovered during host-log, 
+--      they can not be linked to (global) snap_id, or they need a snap-sequene local to host
+--
+--  - queries: 
+--      - ybx_quer_mst : id + text, keep once.. 
+--      - ybx_quer_log : id, per host, per log_dt, cumulative pg_stat_statements
+--      - ybx_quer_rtrq : id per root_req, link of query to session via root_req
+--
+--  - tablets: alwys per host, bse coming from yb_local_tablets.
+--      - ybx_tblt_mst : tblt_uuid + tsrv_uuid, table_id ? role..
+--        Can a tablet occur multiple times on a tsrv, when moving around.. yes 
 --
 -- todo process
---  - use unames.sh to find OS-related data 
---  - use yb-admin to find masters + tservers
 --  - determine interval, 1 min? 3 min ? 
+--  - UUID or text ?? text is easier to like%, uuid more efficiet, more correct?
 -- 
 -- other files:
---  - unames.sh + SQL: 
+--  - unames.sh + SQL: must run on every host 
+--  - do_snap.sh (could be an SQL file...): should only run on 1 host, low freq
 -- 
 
 /*
@@ -50,14 +70,14 @@ drop table ybx_snap_log ;
 
 -- drop table ybx_kvlog ;
 create table ybx_kvlog (
-  host text not null default ybx_get_host()
-, key text not null
-, value text
+  host    text not null default ybx_get_host()
+, key     text not null
+, value   text
 , constraint ybx_kvlog_pk primary key ( host, key ) 
 );
 
 
--- catch data from yb-admin with | as sep 
+-- catch data from programs, notably from yb-admin with | as sep 
 -- use split_part to cut out items..
 -- drop table ybx_intfc ; 
 create table ybx_intf (
@@ -69,11 +89,15 @@ create table ybx_intf (
 
 -- the main snapshot table. parent-FK to some of the logs
 create table ybx_snap_log (
-  id        bigint generated always as identity primary key
-, log_dt    timestamp default now () 
-, host      text      -- generated on which host
-, duration_ms bigint  -- measure time it took to log
+  id          bigint      generated always as identity primary key
+, log_dt      timestamp   default now () 
+, host        text        -- generated on which host
+, duration_ms bigint      -- measure time it took to log
 ) ; 
+
+-- wanted to make it look better.
+-- but cannot override cache flag ?? 
+alter sequence ybx_snap_log_id_seq cache 1 ;
 
 -- universe data
 create table ybx_univ_log ( 
@@ -91,7 +115,7 @@ create table ybx_univ_log (
 -- add: master + tserver to link universe and hosts to mast + sever 
 
 
--- poll data from host., poll per host.
+-- poll data from host., poll per host, hence no snap_id
 
 -- drop table ybx_host_log ;
 create table ybx_host_log ( 

@@ -6,7 +6,7 @@
 
 create database db_scott ; 
 
-create user scott with password 'tiger';
+create user scott with superuser password 'tiger';
 create role scott ;
 
 create schema scott authorization scott ;
