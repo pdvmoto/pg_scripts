@@ -26,10 +26,19 @@
 --    note: bcse tables and indexes can be discovered during host-log, 
 --      they can not be linked to (global) snap_id, or they need a snap-sequene local to host
 --
+--  - sessions:
+--      - tsrv_uuid + pid + start: key to ash-data
+--      - client_addr + port : key to pg_stat_activity
+--
+--  - root_request:
+--      rr_uuid: key.. descendent of session (top -level), or descendent of 000
+--
 --  - queries: 
 --      - ybx_quer_mst : id + text, keep once.. 
 --      - ybx_quer_log : id, per host, per log_dt, cumulative pg_stat_statements
 --      - ybx_quer_rtrq : id per root_req, link of query to session via root_req
+--
+--  - rr_qry, link to root_req + 
 --
 --  - tablets: alwys per host, bse coming from yb_local_tablets.
 --      - ybx_tblt_mst : tblt_uuid + tsrv_uuid, table_id ? role..

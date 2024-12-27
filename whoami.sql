@@ -37,7 +37,7 @@ where 1=1
   and stm.queryid = ash.query_id
 order by ash.sample_time ;
 
-/* 
+ 
 -- use session-info to also show stored history of  session..
 select /* itsme */ ybx_get_host() host , act.pid
 , ash.client_node_ip
@@ -54,7 +54,7 @@ and ash.pid = act.pid
 and act.query like '%itsme2%'
 and stm.queryid = ash.query_id
 order by ash.sample_time ; 
-*/ 
+ 
 
 \conninfo
 
