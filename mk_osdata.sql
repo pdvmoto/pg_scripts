@@ -1,5 +1,12 @@
 -- 
 -- mk_osdata.sql: tables to collect os-data, univers, masters, tservers.
+--
+-- first goal: Queries + activity non-attributable to SQL
+--  to this end: 
+--    - log qury, 
+--    - collect qury_log (per host, per qry)
+--    - collect sess + rr + ash, and report per qry, per sess..
+--    - find non-SQL activity, if possibly
 -- 
 -- other files : unames.sh, unames.sql, do_snap.sh : collect data using uname and sql
 -- 
@@ -319,8 +326,8 @@ BEGIN
   insert /*qury_3 from stmt */ into ybx_qury_mst ( queryid, found_at_host, query )
     select s.queryid, min ( this_host ) , min ( s.query ) -- explain appears with same queryid 
       from pg_stat_statements s
-     where not exists ( select 'x' from ybx_qury_mst m where m.queryid = s.queryid ) ; 
-    group by a.query_id ;  -- note the min-query : bcse multiple texts can exist?
+     where not exists ( select 'x' from ybx_qury_mst m where m.queryid = s.queryid )  
+    group by s.queryid ;  -- note the min-query : bcse multiple texts can exist?
 
   GET DIAGNOSTICS n_qrys_stmt := ROW_COUNT;
   retval := retval + n_qrys_stmt ;
