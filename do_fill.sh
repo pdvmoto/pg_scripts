@@ -26,7 +26,7 @@ do
     \pset footer off
     \t
 
-    with s as ( select nextval('t_seq') as id
+    with /* do_fill.sh Insert */ s as ( select nextval('t_seq') as id
                      , pgs.setting      as hostadr
                   from ( select generate_series ( 1, 1 ) ) as sub
                      , pg_settings pgs
@@ -44,7 +44,7 @@ do
     from s
     ;
 
-    with t_seconds as ( select id
+    with /* do_fill.sh Qry */ t_seconds as ( select id
                , dt
                , ( to_char ( dt, 'SSSS' ) )::bigint        as secs
                , 1000 * ( to_char ( dt, 'SSSS' ) )::bigint

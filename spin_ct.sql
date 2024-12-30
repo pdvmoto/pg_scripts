@@ -16,9 +16,9 @@ DO $$
    i_counter     	integer := 1 ;
    n_sec         	integer := 60 ; 
    n_per_sec 		  real ; 
-   txt_tbl1       text := 'create table ' ; 
+   txt_tbl1       text := 'create table if not exists ' ; 
    txt_tbl2       text := ' ( id bigint primary key, payload text ) ' ; 
-   txt_tbl3       text := ' split into 1 tablets ; ' ;
+   txt_tbl3       text := ' split into 8 tablets ; ' ;
    txt_tblname    text ; 
    txt_sql        text ;
 BEGIN

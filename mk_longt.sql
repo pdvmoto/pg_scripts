@@ -26,7 +26,7 @@ from ybx_tblinfo
 where relname like 't\____'
 order by size_bytes ; 
 
-\! read -p "empty tables created, check size... " abc
+\! read -t 9 -p "empty tables created, check size... " abc
 
 -- try record-size of 1K
 insert into t_rnd ( payload ) 
@@ -56,7 +56,7 @@ from ybx_tblinfo
 where relname like 't\____'
 order by size_bytes ; 
 
-\! read -p "inserted data, approx 10M in both tables, next insert 100K records... " abc
+\! read -t 9 -p "inserted data, approx 10M in both tables, next insert 100K records... " abc
 
 insert into t_rnd ( payload ) 
  select sha512 ( random()::text::bytea  )::text
@@ -86,12 +86,12 @@ from ybx_tblinfo
 where relname like 't\____'
 order by size_bytes ; 
 
-\! read -p "now about 100M in both tables ... " abc
+\! read -t 9 -p "now about 100M in both tables ... " abc
 
 select ' end of space demo ... ? '|| chr(10) || ' Wait until compression kicks in.. ' as results ;
 
 \! echo .
-\! read -p "Final words.. " abc
+\! read -t 9 -p "Final words.. " abc
 \! echo .
 \! echo .
 \! echo "What did we learn...?"

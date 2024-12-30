@@ -34,7 +34,7 @@ echo do_ashrep.sh: start $n_sec_start sec ago and take $n_sec_intvl sec interval
 # pick up the host name...
 export hostnm=`hostname`
 
-ysqlsh -X postgresql://yugabyte@localhost:5436,localhost:5433,localhost:5434?connect_timeout=2 <<EOF
+ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5433,localhost:5434?connect_timeout=2 <<EOF
 
   insert into ybx_ash_rep ( remark_txt, first_dt, last_dt ) 
   select 'report from script do_ashrep.sql' 

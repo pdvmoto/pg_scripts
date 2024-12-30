@@ -26,12 +26,28 @@
 --    note: bcse tables and indexes can be discovered during host-log, 
 --      they can not be linked to (global) snap_id, or they need a snap-sequene local to host
 --
---  - sessions:
---      - tsrv_uuid + pid + start: key to ash-data
---      - client_addr + port : key to pg_stat_activity
+--  todo-process:
+--    - long running job for testing
+--    - start with collection ash + act + stmts (on local node)
+--      then create qry (capture msg), and sess (capture + verify mst)
+--
+--  Questions:
+--  - keys for mast_mst, -log and tsrv_mst, -log: consider uuid or ID
+--  - add to snpshot + tsrv_log: fields from select * from yb_servers_metrics () ;
+--  - query: are dbid + userid part of qry-mst ? : no, bcse ash only has qry_id
+--  - does a query-log link to a top-level-id or to a root_req?
+-- 
+--
+--  - sessions ybx_sess_mst :
+--      - artificial key: id, and attib: log_dt
+--      - unique: tsrv_uuid + pid + backend-start: key to ash-data
+--      - unique: client_addr + port + lowest of (backend-start or log_dt) : key to pg_stat_activity
+--      - gone_dt: only detect via pgs_act, or when node has re-started..? 
+--      - every new tsrv_uuid (tsrv_mst) automatically has an entry for top-000 and rr-000 
 --
 --  - root_request:
 --      rr_uuid: key.. descendent of session (top -level), or descendent of 000
+--      rr_uid only has 1 top-level_id (except for 000)
 --
 --  - queries: 
 --      - ybx_quer_mst : id + text, keep once.. 
@@ -109,7 +125,9 @@ create table ybx_snap_log (
 alter sequence ybx_snap_log_id_seq cache 1 ;
 
 -- universe data
-create table ybx_univ_log ( 
+-- consider mst ?
+-- drop table ybx_univ_log ; 
+ create table ybx_univ_log ( 
   snap_id     bigint  not null              -- fk to snapshot 
 , univ_uuid   text    not null
 , log_dt      timestamp default now ()      -- can also come from snapshot
@@ -127,7 +145,7 @@ create table ybx_univ_log (
 -- poll data from host., poll per host, hence no snap_id
 
 -- drop table ybx_host_log ;
-create table ybx_host_log ( 
+ create table ybx_host_log ( 
   id                bigint generated always as identity primary key
 , host              text        not null
 , log_dt            timestamp   default now()
@@ -142,7 +160,7 @@ create table ybx_host_log (
 -- master_logging
 
 -- drop table ybx_mast_mst ; 
-create table ybx_mast_mst ( 
+ create table ybx_mast_mst ( 
   snap_id     bigint
 , host        text
 , mast_uuid   text 
@@ -172,6 +190,7 @@ create table ybx_tsrv_mst (
 , constraint ybx_tsrv_mst_pk primary key ( host, tsrv_uuid )
 , constraint ybx_tsrv_mst_fk_snap foreign key ( snap_id ) references ybx_snap_log ( id ) 
 ) ; 
+-- serves as FK to several, notably tsrv_log, sess_mst, host, root_req, and ash? 
 
 -- drop table ybx_tsrv_log ; 
 create table ybx_tsrv_log (
@@ -185,9 +204,162 @@ create table ybx_tsrv_log (
 , rd_psec     real
 , wr_psec     real
 , uptime      bigint
+-- add server_metrics
 , constraint ybx_tsrv_log_pk primary key ( snap_id, tsrv_uuid ) 
 , constraint ybx_mast_log_fk_snap_fk foreign key ( snap_id ) references ybx_snap_log ( id ) 
 ) ;
+-- note: add tserver_metrics(), to this record
+-- there are no evident futher dependetns, hence no id neede as key?
+
+
+-- Queries... mst is just lookup, bcse Ash only has query-id, not usr, dbid...
+
+-- drop table ybx_qury_mst ;
+ create table ybx_qury_mst (  
+  queryid     bigint not null primary key
+, log_dt      timestamp with time zone  default now() 
+, found_at_host text                    default ybx_get_host()    -- consider FK, but no real need..
+, query       text
+) ;
+-- serves as fk to many.
+-- note that identical syntax can appear for diff users and in diff dbid
+-- hence dbid and userid not in qury_mst, but may be needed in _log or others
+
+-- add defaults for 0-6, find desc
+insert into ybx_qury_mst (queryid, found_at_host, query ) values 
+  ( 0, ybx_get_host(), '0 zero')
+, ( 1, ybx_get_host(), '1 one')
+, ( 2, ybx_get_host(), '2 flush')
+, ( 3, ybx_get_host(), '3 compaction')
+, ( 4, ybx_get_host(), '4 four')
+, ( 5, ybx_get_host(), '5 five')
+, ( 6, ybx_get_host(), '6 six') ;
+
+-- qury_log: is for the moment yb_pgs_stmt
+-- later provide more complete stats by saving every x seconds
+
+
+-- Session: client-connection to Postgres/TServer
+-- data comes from either pg_stat_act or ash..., hene pk = ID
+-- drop table ybx_sess_mst
+create table ybx_sess_mst (
+  id                bigint  generated always as identity  primary key
+, host              text   -- prefer host instead of ts-uuid
+, client_addr       text   -- or inet
+, client_hostname   text
+, client_port       int
+, backend_start     timestamp with time zone default now() -- try to catch from act.
+, gone_dt           timestamp with time zone -- null, until gone.
+, app_name          text    -- from pg_stat_activity
+-- unique: host + client+adr+port + start backend
+-- Q: no user-id ? 
+);
+
+-- Q: does sess need separate _log ?
 
 
 
+-------- functions... ----
+
+/* *****************************************************************
+
+function : ybx_get_ash();
+
+collect ash + pg_stat_stmnts + pg_stat_activity for current node
+returns total nr of records
+
+*/
+
+CREATE OR REPLACE FUNCTION ybx_get_qury()
+  RETURNS bigint
+  LANGUAGE plpgsql
+AS $$
+DECLARE
+  nr_rec_processed BIGINT         := 0 ;
+  n_qrys_ash    bigint            := 0 ; -- from ash
+  n_qrys_act    bigint            := 0 ; -- from pg_stat_act
+  n_qrys_stmt   bigint            := 0 ; -- from pg_stat
+  n_qrys_upd    bigint            := 0 ; -- had to get query-text from pg_stat
+  n_stmt_log    bigint            := 0 ; -- if stmnt-stats get logged..
+  this_host     text              := ybx_get_host() ;  -- only get this once..
+  retval        bigint            := 0 ;
+  start_dt      timestamp         := clock_timestamp();
+  end_dt        timestamp         := now() ;
+  duration_ms   double precision  := 0.0 ;
+  cmmnt_txt      text              := 'comment ' ;
+BEGIN
+
+  RAISE NOTICE 'ybx_get_qury() : starting..' ;
+
+  insert /*qury_1 from ash */ into ybx_qury_mst ( queryid, found_at_host, log_dt )
+    select a.query_id, this_host, min ( a.sample_time ) 
+    from yb_active_session_history a            -- consider select from table after gathering data ?
+    where a.sample_time > ( start_dt - make_interval ( secs=>900 ) )
+      and not exists ( select 'x' from ybx_qury_mst m where m.queryid = a.query_id ) 
+    group by a.query_id, this_host ; 
+
+  GET DIAGNOSTICS n_qrys_ash := ROW_COUNT;
+  retval := retval + n_qrys_ash ;
+
+  RAISE NOTICE 'ybx_get_qury() from ash : % '     , n_qrys_ash ;
+
+  insert /*qury_2 from act */ into ybx_qury_mst ( queryid, found_at_host, log_dt, query )
+    select a.query_id, this_host, min ( coalesce ( a.query_start, clock_timestamp() ) ), min ( a.query)
+      from pg_stat_activity a
+     where not exists ( select 'x' from ybx_qury_mst m where m.queryid = a.query_id ) 
+       and a.query_id is not null
+    group by a.query_id, this_host, query ;  -- note the min-query : bcse multiple texts can exist?
+
+  GET DIAGNOSTICS n_qrys_act := ROW_COUNT;
+  retval := retval + n_qrys_act ;
+
+  RAISE NOTICE 'ybx_get_qury() from act : % '     , n_qrys_act ;
+
+  -- consider a merge with 4.. 
+  insert /*qury_3 from stmt */ into ybx_qury_mst ( queryid, found_at_host, query )
+    select s.queryid, min ( this_host ) , min ( s.query ) -- explain appears with same queryid 
+      from pg_stat_statements s
+     where not exists ( select 'x' from ybx_qury_mst m where m.queryid = s.queryid ) ; 
+    group by a.query_id ;  -- note the min-query : bcse multiple texts can exist?
+
+  GET DIAGNOSTICS n_qrys_stmt := ROW_COUNT;
+  retval := retval + n_qrys_stmt ;
+
+  RAISE NOTICE 'ybx_get_qury() from stmt : % '     , n_qrys_stmt ;
+
+  -- consider a mege.. 
+  update /*qury_4_upd */ ybx_qury_mst m
+    set query = ( select min ( query ) 
+                  from pg_stat_statements s 
+                  where m.queryid = s.queryid )
+  where coalesce (  ( trim ( m.query)), '' ) = ''  -- pg funny way to detect empty or null..  
+  ; 
+
+  GET DIAGNOSTICS n_qrys_upd := ROW_COUNT;
+  retval := retval + n_qrys_upd ;
+
+  duration_ms := EXTRACT ( MILLISECONDS from ( clock_timestamp() - start_dt ) ) ;
+
+  RAISE NOTICE 'ybx_get_qury() elapsed : % ms'     , duration_ms ;
+
+  cmmnt_txt := 'get_qury: from_ash: '  || n_qrys_ash 
+                    || ', from_act: '  || n_qrys_act 
+                    || ', from_stmt: ' || n_qrys_stmt 
+                    || ', from upd: '  || n_qrys_upd || '.';
+
+  insert into ybx_log ( logged_dt, host,       component,     ela_ms,      info_txt )
+         select clock_timestamp(), ybx_get_host(), 'ybx_get_qury', duration_ms, cmmnt_txt ;
+
+  -- end of fucntion..
+  return retval ;
+
+END; -- ybx_get_qury, to incrementally populate table
+$$
+;
+
+\set timing on
+
+-- testing
+select ybx_get_qury () ; 
+
+\set timing off
