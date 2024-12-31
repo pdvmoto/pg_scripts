@@ -370,3 +370,156 @@ $$
 select ybx_get_qury () ; 
 
 \set timing off
+
+-- below: additions session
+
+drop table ybx_sess_log ;
+drop table ybx_sess_mst ;
+
+-- drop table ybx_sess_log ;
+create table ybx_sess_log ( 
+  id            bigint generated always as identity primary key
+, par_id        bigint not null -- link to parent
+, log_dt        timestamp with time zone not null default now()
+, data          text 
+);
+-- needs index on par_id + log_dt
+
+-- drop table ybx_sess_mst ; 
+create table ybx_sess_mst ( 
+  id                bigint  generated always as identity  primary key
+, host              text   -- prefer host instead of ts-uuid
+, pid               int
+, backend_start     timestamp with time zone default now() -- try to catch from act or from lowest ash.sample_date
+, client_addr       text   -- or inet
+, client_port       int
+, client_hostname   text
+, gone_dt           timestamp with time zone -- null, until gone.
+, datid             oid
+, usesysid          oid
+, leader_pid        int
+, app_name          text    -- from pg_stat_activity
+-- unique: host + pid + backend_start 
+-- also: client+adr+port + start backend
+-- Q: no user-id ?
+-- polling: how frequent... sessions can be <1sec.
+-- some provision to catch the ones not found via pg_stat_activity.. merge some from  ash ? 
+) ; 
+
+
+
+/* *****************************************************************
+
+function : ybx_get_sess();
+
+collect ash + pg_stat_stmnts + pg_stat_activity for current node
+returns total nr of records
+
+*/
+
+CREATE OR REPLACE FUNCTION ybx_get_sess()
+  RETURNS bigint
+  LANGUAGE plpgsql
+AS $$
+DECLARE
+  nr_rec_processed BIGINT         := 0 ;
+  n_sess_act    bigint            := 0 ; -- from pg_stat_act
+  n_sess_ash    bigint            := 0 ; -- from ash
+  n_sess_upd    bigint            := 0 ; -- had to get data from pg_other view
+  n_sess_log    bigint            := 0 ; -- nr of lines logged+updated.
+  this_host     text              := ybx_get_host() ;  -- only get this once..
+  retval        bigint            := 0 ;
+  start_dt      timestamp         := clock_timestamp();
+  end_dt        timestamp         := now() ;
+  duration_ms   double precision  := 0.0 ;
+  cmmnt_txt      text              := 'comment ' ;
+BEGIN
+
+  RAISE NOTICE 'ybx_get_sess() : starting..' ;
+
+  -- get from pg_stat_activity., the easiest one bcse usually not too many lines (less than ash)
+  insert /* get_sess_1 */ into ybx_sess_mst 
+        ( host,     pid, backend_start, client_addr,       client_port, client_hostname 
+       , datid,   usesysid, leader_pid, app_name ) 
+  select this_host, pid, backend_start, host ( client_addr) ::text, client_port, client_hostname
+       , datid,   usesysid, leader_pid, application_name
+    -- add some non-log-data here: datid, usesysid, app_name, cl_hostname, backend_type?  
+    -- save log-data for a log-table with time-dependent data
+    from pg_stat_activity a 
+    where not exists ( select 'X' from ybx_sess_mst m 
+                        where this_host             = m.host
+                          and a.pid                 = m.pid
+                          and a.backend_start       = m.backend_start 
+                          and m.gone_dt         is null -- still open, e.g. session was not terminated 
+                      ) ;
+
+  GET DIAGNOSTICS n_sess_act := ROW_COUNT;
+  retval := retval + n_sess_act ;
+
+  RAISE NOTICE 'ybx_get_sess() from act : % '     , n_sess_act ;
+
+  -- get from ash, many more lines...?
+  -- but only catch those who are "local" e.g. top_level_node=000 or top_level_node = local tsrv
+  -- and not exists in table yet..
+  -- option: when detecting a new combi if cl_add+port: put tsrv+cl_add+port somewhere for later addition?
+  -- but investigate via collected data in ash + activity first: do any sess get discoverd from ash-only ?
+  insert /* get_sess_2 */ into ybx_sess_mst 
+        ( host,       pid, backend_start,      client_addr
+                                             , client_port ) 
+  select this_host, a.pid, min(a.sample_time), split_part ( client_node_ip, ':', 1 ) as client_addr
+                                             , split_part ( client_node_ip, ':', 2 )::int as client_port
+    from yb_active_session_history a 
+    where 1=0 -- disable for the moment
+      and not exists ( select 'X' from ybx_sess_mst m 
+                        where this_host         = m.host
+                          and a.pid             = m.pid
+                          and m.gone_dt is null -- e.g. session was not terminated 
+                      ) 
+     group by this_host, a.pid, 4, 5 ;
+
+     -- can not limit records by time, as this would lead to double-counts after 900sec 
+     --  and a.sample_time >  ( now - make_interval ( secs=> 900  ) )  ;  -- limit nr records..
+
+  GET DIAGNOSTICS n_sess_ash := ROW_COUNT;
+  retval := retval + n_sess_ash ;
+
+  RAISE NOTICE 'ybx_get_sess() from ash : % ', n_sess_ash ;
+
+  -- now find the closed sessions..
+  update /* get_sess_3_upd */ ybx_sess_mst m
+  set gone_dt = now()
+  where host=ybx_get_host ()
+   and gone_dt is null 
+  and not exists ( select 's' from pg_stat_activity  a 
+                    where ybx_get_host() = m.host
+                      and a.pid = m.pid
+                      and a.backend_start = m.backend_start ) ; 
+
+  GET DIAGNOSTICS n_sess_upd := ROW_COUNT;
+  retval := retval + n_sess_upd ;
+
+  RAISE NOTICE 'ybx_get_sess() nr gone : % ', n_sess_upd ;
+
+  duration_ms := EXTRACT ( MILLISECONDS from ( clock_timestamp() - start_dt ) ) ;
+
+  cmmnt_txt := 'get_sess: from_ash: '  || n_sess_ash
+                    || ', from_act: '  || n_sess_act 
+                    || ', from upd: '  || n_sess_upd || '.';
+
+  insert into ybx_log ( logged_dt, host,       component,     ela_ms,      info_txt )
+         select clock_timestamp(), ybx_get_host(), 'ybx_get_sess', duration_ms, cmmnt_txt ;
+
+  -- end of fucntion..
+  return retval ;   
+
+END; -- ybx_get_sess, to incrementally populate table
+$$
+; 
+
+\set timing on      
+
+-- testing
+select ybx_get_sess () ;
+
+
+
