@@ -96,6 +96,8 @@ drop table ybx_tsrv_mst ;
 drop table ybx_univ_log ; 
 drop table ybx_univ_mst ; 
 
+drop table ybx_data_log ; 
+drop table ybx_data_mst ; 
 
 drop table ybx_sess_log ;
 drop table ybx_sess_mst ; 
@@ -492,6 +494,187 @@ END; -- ybx_get_sess, to incrementally populate table
 $$
 ; 
 
+-- drop table ybx_datb_mst ; 
+ create table ybx_datb_mst (
+  datid     oid not null primary key
+, datname   text
+, host      text                      default ybx_get_host()   -- logged at host
+, log_dt    timestamp with time zone  default now()  
+);
+-- key is oid, snap_id just host+dt where it was found
+
+-- drop table ybx_data_log ; 
+-- id+host+log_dt are generated, 
+-- other fields from pg_stat_database
+-- doesnt really need ID ?? datid, host, log_dt are real key? 
+-- note: no snap_id, bcse log is per host, and snap_id is global
+create table ybx_datb_log (
+  id      bigint        generated always as identity primary key
+, host    text          default ybx_get_host() 
+, log_dt  timestamp with time zone    default now ()
+, datid         oid     -- fk to mst
+, numbackends   integer                  
+, xact_commit   bigint                  
+, xact_rollback bigint                  
+, blks_read     bigint                
+, blks_hit      bigint               
+, tup_returned  bigint              
+, tup_fetched   bigint             
+, tup_inserted  bigint            
+, tup_updated   bigint           
+, tup_deleted   bigint          
+, conflicts     bigint         
+, temp_files    bigint        
+, temp_bytes    bigint       
+, deadlocks     bigint      
+, checksum_failures       bigint 
+, checksum_last_failure   timestamp with time zone 
+, blk_read_time           double precision        
+, blk_write_time          double precision       
+, session_time            double precision      
+, active_time             double precision     
+, idle_in_transaction_time  double precision  
+, sessions                bigint             
+, sessions_abandoned      bigint            
+, sessions_fatal          bigint           
+, sessions_killed         bigint          
+, stats_reset             timestamp with time zone 
+) ; 
+
+alter table ybx_datb_log 
+  add constraint ybx_datb_log_fk_mst foreign key ( datid ) 
+                         references ybx_datb_mst ( datid ) ; 
+
+-- with skip-scan, only one of the indexes would suffice ? 
+create unique index ybx_datb_log_dh on ybx_datb_log ( datid, host,  log_dt ); 
+create        index ybx_datb_log_hd on ybx_datb_log ( host,  datid, log_dt ); 
+
+/* ****
+
+function to insert databases and logging
+
+logs both datb_mst, if new db, and datb_log tables.
+
+*/
+
+CREATE OR REPLACE FUNCTION ybx_get_datb()
+  RETURNS bigint    
+  LANGUAGE plpgsql
+AS $$
+DECLARE
+  nr_rec_processed BIGINT         := 0 ;
+  n_datb_new    bigint            := 0 ; -- newly found from pg_stat_db
+  n_datb_log    bigint            := 0 ; -- log- the numbes from pg_stat_db
+  n_datb_upd    bigint            := 0 ; -- had to get data from pg_other view
+  this_host     text              := ybx_get_host() ;  -- only get this once..
+  retval        bigint            := 0 ;
+  start_dt      timestamp         := clock_timestamp(); 
+  end_dt        timestamp         := now() ;
+  duration_ms   double precision  := 0.0 ;
+  cmmnt_txt      text              := 'comment ' ;
+BEGIN
+
+  RAISE NOTICE 'ybx_get_datb() : starting..' ;
+
+  insert into ybx_datb_mst (  datid,   datname ) 
+  select                    d.datid, d.datname 
+  from pg_catalog.pg_stat_database d
+  where not exists  ( select 'x' 
+                      from ybx_datb_mst m 
+                      where d.datid = m.datid ) ; 
+
+  GET DIAGNOSTICS n_datb_new := ROW_COUNT;
+  retval := retval + n_datb_new ;
+
+  RAISE NOTICE 'ybx_get_datb() nr new : % ', n_datb_new ;
+
+  -- the log-data.. 
+  insert into ybx_datb_log ( 
+      datid         
+    , numbackends  
+    , xact_commit 
+    , xact_rollback
+    , blks_read   
+    , blks_hit   
+    , tup_returned 
+    , tup_fetched 
+    , tup_inserted 
+    , tup_updated 
+    , tup_deleted 
+    , conflicts  
+    , temp_files 
+    , temp_bytes 
+    , deadlocks 
+    , checksum_failures 
+    , checksum_last_failure 
+    , blk_read_time        
+    , blk_write_time      
+    , session_time       
+    , active_time       
+    , idle_in_transaction_time 
+    , sessions              
+    , sessions_abandoned   
+    , sessions_fatal      
+    , sessions_killed    
+    , stats_reset )  
+  select 
+      datid         
+    , numbackends  
+    , xact_commit 
+    , xact_rollback
+    , blks_read   
+    , blks_hit   
+    , tup_returned 
+    , tup_fetched 
+    , tup_inserted 
+    , tup_updated 
+    , tup_deleted 
+    , conflicts  
+    , temp_files 
+    , temp_bytes 
+    , deadlocks 
+    , checksum_failures 
+    , checksum_last_failure 
+    , blk_read_time        
+    , blk_write_time      
+    , session_time       
+    , active_time       
+    , idle_in_transaction_time 
+    , sessions              
+    , sessions_abandoned   
+    , sessions_fatal      
+    , sessions_killed    
+    , stats_reset 
+  from pg_stat_database d ; 
+  -- no where clause needed, just log
+      
+  GET DIAGNOSTICS n_datb_log := ROW_COUNT;
+  retval := retval + n_datb_log ;
+
+  RAISE NOTICE 'ybx_get_datb() nr logged : % ', n_datb_log ;
+
+
+  duration_ms := EXTRACT ( MILLISECONDS from ( clock_timestamp() - start_dt ) ) ;
+
+  RAISE NOTICE 'ybx_get_datb() elapsed : % ms'     , duration_ms ;
+
+  cmmnt_txt :=  'get_datb: from new: ' || n_datb_new
+                    || ', from_log: '  || n_datb_log
+                    || ', from upd: '  || n_datb_upd || '.';
+  
+  insert into ybx_log ( logged_dt, host,       component,     ela_ms,      info_txt )
+         select clock_timestamp(), ybx_get_host(), 'ybx_get_datb', duration_ms, cmmnt_txt ;
+  
+  -- end of fucntion..            
+  return retval ;   
+  
+END; -- ybx_get_sess, to incrementally populate table
+$$
+; 
+
+--- now test the functions...
+
+
 \set timing on
 
 -- testing
@@ -499,5 +682,7 @@ select ybx_get_qury () ;
 
 select ybx_get_sess () ;
 
-\et timing off
+select ybx_get_datb () ;
+
+\set timing off
 
