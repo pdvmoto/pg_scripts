@@ -671,7 +671,7 @@ BEGIN
   -- end of fucntion..            
   return retval ;   
   
-END; -- ybx_get_sess, to incrementally populate table
+END; -- ybx_get_datb, to incrementally populate table
 $$
 ; 
 
