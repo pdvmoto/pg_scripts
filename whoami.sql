@@ -3,7 +3,9 @@ select current_user ;
 
 -- first select session, pid, client_ip..
 -- note: replace distinct by max of sample-time
-select /* itsme */ ybx_get_host() host , act.pid
+select /* itsme */
+  ybx_get_host() host 
+, act.pid
 , max ( ash.client_node_ip )  clnt_node_ip
 from pg_stat_activity act
    , yb_active_session_history ash

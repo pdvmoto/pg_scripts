@@ -46,8 +46,8 @@
 -- 
 --
 --  - sessions ybx_sess_mst :
---      - artificial key: id, and attib: log_dt
---      - unique: tsrv_uuid + pid + backend-start: key to ash-data
+--      - artificial key: id
+--      - unique: tsrv_uuid/host + pid + backend-start: key to ash-data
 --      - unique: client_addr + port + lowest of (backend-start or log_dt) : key to pg_stat_activity
 --      - gone_dt: only detect via pgs_act, or when node has re-started..? 
 --      - every new tsrv_uuid (tsrv_mst) automatically has an entry for top-000 and rr-000 
@@ -96,6 +96,10 @@ drop table ybx_tsrv_mst ;
 drop table ybx_univ_log ; 
 drop table ybx_univ_mst ; 
 
+
+drop table ybx_sess_log ;
+drop table ybx_sess_mst ; 
+  
 drop table ybx_snap_log ; 
 
 */
@@ -246,26 +250,6 @@ insert into ybx_qury_mst (queryid, found_at_host, query ) values
 -- later provide more complete stats by saving every x seconds
 
 
--- Session: client-connection to Postgres/TServer
--- data comes from either pg_stat_act or ash..., hene pk = ID
--- drop table ybx_sess_mst
-create table ybx_sess_mst (
-  id                bigint  generated always as identity  primary key
-, host              text   -- prefer host instead of ts-uuid
-, client_addr       text   -- or inet
-, client_hostname   text
-, client_port       int
-, backend_start     timestamp with time zone default now() -- try to catch from act.
-, gone_dt           timestamp with time zone -- null, until gone.
-, app_name          text    -- from pg_stat_activity
--- unique: host + client+adr+port + start backend
--- Q: no user-id ? 
-);
-
--- Q: does sess need separate _log ?
-
-
-
 -------- functions... ----
 
 /* *****************************************************************
@@ -364,17 +348,7 @@ END; -- ybx_get_qury, to incrementally populate table
 $$
 ;
 
-\set timing on
-
--- testing
-select ybx_get_qury () ; 
-
-\set timing off
-
 -- below: additions session
-
-drop table ybx_sess_log ;
-drop table ybx_sess_mst ;
 
 -- drop table ybx_sess_log ;
 create table ybx_sess_log ( 
@@ -502,6 +476,8 @@ BEGIN
 
   duration_ms := EXTRACT ( MILLISECONDS from ( clock_timestamp() - start_dt ) ) ;
 
+  RAISE NOTICE 'ybx_get_sess() elapsed : % ms'     , duration_ms ;
+
   cmmnt_txt := 'get_sess: from_ash: '  || n_sess_ash
                     || ', from_act: '  || n_sess_act 
                     || ', from upd: '  || n_sess_upd || '.';
@@ -516,10 +492,12 @@ END; -- ybx_get_sess, to incrementally populate table
 $$
 ; 
 
-\set timing on      
+\set timing on
 
 -- testing
+select ybx_get_qury () ; 
+
 select ybx_get_sess () ;
 
-
+\et timing off
 
