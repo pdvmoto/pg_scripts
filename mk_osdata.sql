@@ -76,6 +76,28 @@
 --  - do_snap.sh (could be an SQL file...): should only run on 1 host, low freq
 -- 
 
+/* **** 
+
+notes on sessions detected from ASH ...
+
+-- using this SQL, we find: root-000 can have either 
+  ts=000 (self, local tsrv_uuid) or 
+  ts=tsrv_uuid of other ts (e.g. call from ts from other node ... ) 
+
+select  a.host,  a.root_request_id , a.top_level_node_id ts_uuid, a.pid, count (*) cnt
+--, a.* 
+from ybx_ash  a
+where 1=1  -- query_id in (   -2871380974112016382, -6828509101199176401 ) 
+-- and host != 'node3'
+and root_request_id::text like '0000%' 
+and sample_time > now() - interval '6000 sec'
+group by 1, 2, 3, 4
+
+This needs to be included in the create sess_mst 
+from all ash-records, if not exists pid + top-level-node->host + open: 
+then add to sess_mst, and use sample_time as backend-start
+******* */
+
 /*
 
 -- helper tables
@@ -482,7 +504,7 @@ BEGIN
 
   cmmnt_txt := 'get_sess: from_ash: '  || n_sess_ash
                     || ', from_act: '  || n_sess_act 
-                    || ', from upd: '  || n_sess_upd || '.';
+                    ||   ', closed: '  || n_sess_upd || '.';
 
   insert into ybx_log ( logged_dt, host,       component,     ela_ms,      info_txt )
          select clock_timestamp(), ybx_get_host(), 'ybx_get_sess', duration_ms, cmmnt_txt ;
