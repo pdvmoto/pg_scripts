@@ -19,6 +19,7 @@
 --  - universe and cluster ? collect the json string into ybx_unvr_log : done
 --  - parent tables for node, mster, tserver, with static data (names, OS, UUID), no log-time: part done
 --  - introduce "snapshot_id": point-in-time where multiple data (node, master, tserver) is colletcted: done
+--      - re-consider: most logging os per-host, and snaphost has little meaning..
 --  - introduce master-records: host (name, ip, os, processors..) univese, cluster, also : table.. ?
 --  - loging for master and tserver entities separate tables ? scrape from yb-admin and yb-functions() : done
 --
@@ -34,6 +35,7 @@
 --      they can not be linked to (global) snap_id, or they need a snap-sequene local to host
 --
 --  todo-process:
+--    - find sessions with most work done (add up the ASH?)
 --    - long running job for testing
 --    - start with collection ash + act + stmts (on local node)
 --      then create qry (capture msg), and sess (capture + verify mst)
@@ -46,6 +48,7 @@
 -- 
 --
 --  - sessions ybx_sess_mst :
+--      - client_addr : as inet, in ybx_ash and ybx_sess and add FK
 --      - artificial key: id
 --      - unique: tsrv_uuid/host + pid + backend-start: key to ash-data
 --      - unique: client_addr + port + lowest of (backend-start or log_dt) : key to pg_stat_activity
@@ -690,7 +693,7 @@ BEGIN
   -- end of fucntion..            
   return retval ;   
   
-END; -- ybx_get_sess, to incrementally populate table
+END; -- ybx_get_datb, to incrementally populate table
 $$
 ; 
 
