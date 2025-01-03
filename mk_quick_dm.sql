@@ -9,16 +9,16 @@ drop table ybx_sess_mst ;
 drop table ybx_tsrv_mst ; 
 
 create table ybx_tsrv_mst (
-  tsrv_uuid   text primary key
+  tsrv_uuid   uuid primary key
 , host        text
 ) ;  
 
 create table ybx_sess_mst (
   id                bigint  generated always as identity  primary key
-, tsrv_uuid         text not null 
+, tsrv_uuid         uuid not null 
 , pid               int
 , backend_start     timestamp with time zone default now() -- try to catch from act or from lowest ash.sample_date
-, host              text   -- prefer host instead of ts-uuid
+, host              text   -- for the record, prefer readable host instead of ts-uuid
 , client_addr       text   -- or inet
 , client_port       int
 , client_hostname   text
@@ -35,12 +35,13 @@ create table ybx_sess_mst (
  create table ybx_qury_mst (
   queryid     bigint not null primary key
 , log_dt      timestamp with time zone  default now()
-, found_at_tsrv text                       -- consider FK, but no real need..
+, found_at_tsrv uuid          -- consider FK, but no real need..
+, found_at_host text          -- just for curiousity sake
 , query       text
 ) ;
 
 create table ybx_tabl_mst (
-  tabl_uuid       text primary key
+  tabl_uuid       uuid primary key
 , oid             oid
 , datid           oid     -- fk to database
 , schemaname      text
@@ -49,17 +50,19 @@ create table ybx_tabl_mst (
 );
 
 create table ybx_tblt_mst ( 
-  tblt_uuid       text primary key
-, tabl_uuid       text
-, tsrv_uuid       text
+  tblt_uuid       uuid primary key
+, tabl_uuid       uuid
+, tsrv_uuid       uuid  -- e.g. host where this tablet is local, found
+, host            text  -- just or info
 , role            text  -- leader or follower
 , state           text  -- tombstone or other
-, constraint ybx_tblt_mst_fk_tabl foreign key ( tabl_uuid ) references ybx_tabl_mst ( tabl_uuid ) 
+, constraint ybx_tblt_mst_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid ) 
+-- only if in same db , constraint ybx_tblt_mst_fk_tabl foreign key ( tabl_uuid ) references ybx_tabl_mst ( tabl_uuid ) 
 ) ; 
   
 create table ybx_ashy_log (
     id                    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  tsrv_uuid               text not null,
+  tsrv_uuid               uuid not null,
   host                  text NULL,
   sample_time           timestamptz  NULL,
   root_request_id       uuid NULL,
@@ -75,7 +78,7 @@ create table ybx_ashy_log (
   client_addr           text, 
   client_port           integer, 
   wait_event_aux        text NULL,
-  tblt_uuid             text , 
+  tblt_uuid             uuid ,      -- determine from wait_event_aux
   sample_weight         real NULL,
   wait_event_type       text NULL,
     ysql_dbid              oid NULL

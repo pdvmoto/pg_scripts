@@ -8,6 +8,29 @@
 --    - collect sess + rr + ash, and report per qry, per sess..
 --    - find non-SQL activity, if possibly
 -- 
+-- Latest insight: ASH may be the best "detector" of parent-enitities.
+--    - ASH will contain records for session, qry, tablets not yet discovered.
+--    - if ASH has FKs to sess, qury, tblt, it needs to inset parent-records
+--    - log ASH records in temp-table, then process them..
+--    - ASH record can be divided over session, [rrquest,] new-qury, and ashy-log
+--      - top_level->host, a.pid, min ( a.sample_time) ; group by top+pid.. 
+--        ->  new sessions. to be updated if/when found in pg_stat_activity, later or never...
+--      - a.qryid and a.toplevel.> new qury, text must be found/upd from pg_stmt, later..
+--      - new tablets ? a.wait_aux-> local_tablets -> ybx_tblt: all data available. ok.
+--        - all tablets can be detected this way...
+--      - assume host+tserver already detected (new tsrver relatively rare...)
+--      - extract rrequest: makes the ash record much smller..
+--      - then insert from temp-tbl into ybx_ashy_log: 
+--        - only time-dependent data, and FKs to event-names (efficient?) 
+--
+--  Latest on host, as key to entities..: it is mostly tserver.
+--    - tsrv_uuid is better key than host.. , and uuid-type more efficient
+--
+--  Root_req_id: separate entity, saves on space for rr, tsrv, client, qury_id... 
+--
+--  further efficient: lookup-tbl, there are only +/- 40 combinations:
+--    distinct ( wait_event_component, wait_event_class, wait_event_type, wait_event )
+--
 -- other files : unames.sh, unames.sql, do_snap.sh : collect data using uname and sql
 -- 
 -- get os data from program or file into tbl, then parse..
@@ -15,16 +38,20 @@
 -- the abstract of "parent tables" can wait: Host, Cluster, Universe, Master, TSever..
 -- 
 -- todo datamodel:
---  - nr_postgres_procs : separate count for postgres procs ? : TBD
+--  - catch tsrver-0000 and root_req-0000 : in ybx_sess_mst , also in sess_log ? 
+--  - consider adding data to ybx_sess_log.. (what exactly, why ? )
+--  - nr_postgres_procsesses : separate count for postgres processess ? : TBD
+--  - use text for all uuids, remove '-'. bcse severl views have it as text, and.. lazy
+--  - parent or mst tables everywhere. just better
+--
 --  - universe and cluster ? collect the json string into ybx_unvr_log : done
---  - parent tables for node, mster, tserver, with static data (names, OS, UUID), no log-time: part done
 --  - introduce "snapshot_id": point-in-time where multiple data (node, master, tserver) is colletcted: done
 --      - re-consider: most logging os per-host, and snaphost has little meaning..
---  - introduce master-records: host (name, ip, os, processors..) univese, cluster, also : table.. ?
 --  - loging for master and tserver entities separate tables ? scrape from yb-admin and yb-functions() : done
 --
 --  - tables + indexes: could be part of snapshot but only for "global" info. so no.
 --    Better collect info on each host/node/tsrvr. And generate the mst info as needed
+--      - ybx_tsrv_mst : needed !
 --      - ybx_tabl_mst
 --      - ybx_tabl_log (from ybx_tblinfo, low freq)
 --        - ybx_tabl_log_stats ( per host, per log_dt, e.g. per ash-loop?, highter freq )
@@ -36,18 +63,17 @@
 --
 --  todo-process:
 --    - find sessions with most work done (add up the ASH?)
---    - long running job for testing
---    - start with collection ash + act + stmts (on local node)
---      then create qry (capture msg), and sess (capture + verify mst)
+--    - long running job for testing : mk_longt.sql and tlong.sql
 --
 --  Questions:
---  - keys for mast_mst, -log and tsrv_mst, -log: consider uuid or ID
+--  - keys for mast_mst, -log and tsrv_mst, -log: better  uuid (as text, no dashes)
 --  - add to snpshot + tsrv_log: fields from select * from yb_servers_metrics () ;
 --  - query: are dbid + userid part of qry-mst ? : no, bcse ash only has qry_id
 --  - does a query-log link to a top-level-id or to a root_req?
 -- 
 --
 --  - sessions ybx_sess_mst :
+--      - add pid+date to 
 --      - client_addr : as inet, in ybx_ash and ybx_sess and add FK
 --      - artificial key: id
 --      - unique: tsrv_uuid/host + pid + backend-start: key to ash-data
