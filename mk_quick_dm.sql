@@ -11,32 +11,36 @@
 
 drop table ybx_ashy_log ; 
 
-drop table ybx_tblt_rep ;
-drop table ybx_tata_lnk ;
-drop table ybx_tblt_mst ; 
+drop table ybx_tblt_rep ; 
+drop table ybx_tabl_log ; 
 
+drop table ybx_tata_lnk ; 
+
+drop table ybx_tblt_mst ; 
 drop table ybx_tabl_mst ; 
+
+drop table ybx_qury_log ; 
+drop table ybx_sess_log ; 
+
+drop table ybx_mast_log ; 
+drop table ybx_tsrv_log ; 
+drop table ybx_univ_log ; 
 
 drop table ybx_datb_log ; 
 drop table ybx_datb_mst ; 
 
-drop table ybx_qury_log ; 
+
+
 drop table ybx_qury_pln ; 
 drop table ybx_qury_mst ; 
 
-drop table ybx_sess_log ; 
 drop table ybx_sess_mst ; 
 
-drop table ybx_tsrv_log ; 
 drop table ybx_tsrv_mst ; 
-
-drop table ybx_mast_log ; 
 drop table ybx_mast_mst ; 
 
 drop table ybx_host_log ; 
 drop table ybx_host_mst ; 
-
-drop table ybx_univ_log ; 
 drop table ybx_univ_mst ; 
 
 drop table ybx_snap_log ; 
@@ -472,7 +476,7 @@ create table ybx_qury_mst (
 -- link-table
 -- drop table ybx_tata_lnk
  create table ybx_tata_lnk (
-  tabl_uuuid        uuid not null
+  tabl_uuid         uuid not null
 , tblt_uuid         uuid not null
 , log_dt            timestamp with time zone default now ()
 , constraint ybx_tata_lnk_fk_tabl foreign key ( tabl_uuid ) references ybx_tabl_mst ( tabl_uuid ) 
