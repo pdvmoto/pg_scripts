@@ -33,23 +33,20 @@
 --
 -- other files : unames.sh, unames.sql, do_snap.sh : collect data using uname and sql
 -- 
--- get os data from program or file into tbl, then parse..
--- we start by collecting "sample data".
--- the abstract of "parent tables" can wait: Host, Cluster, Universe, Master, TSever..
 -- 
 -- todo datamodel:
 --  - catch tsrver-0000 and root_req-0000 : in ybx_sess_mst , also in sess_log ? 
---  - consider adding data to ybx_sess_log.. (what exactly, why ? )
+--      - later, when pg15 is better
+--  - consider adding data to ybx_sess_log.. pg_stat_activity ? 
 --  - nr_postgres_procsesses : separate count for postgres processess ? : TBD
---  - use text for all uuids, remove '-'. bcse severl views have it as text, and.. lazy
---  - parent or mst tables everywhere. just better
 --
 --  - universe and cluster ? collect the json string into ybx_unvr_log : done
---  - introduce "snapshot_id": point-in-time where multiple data (node, master, tserver) is colletcted: done
+--  - introduce "snapshot_id": 
+--        point-in-time where multiple data (node, master, tserver) is colletcted: done
 --      - re-consider: most logging os per-host, and snaphost has little meaning..
---  - loging for master and tserver entities separate tables ? scrape from yb-admin and yb-functions() : done
 --
 --  - tables + indexes: could be part of snapshot but only for "global" info. so no.
+-- 
 --    Better collect info on each host/node/tsrvr. And generate the mst info as needed
 --      - ybx_tsrv_mst : needed !
 --      - ybx_tabl_mst
@@ -57,7 +54,7 @@
 --        - ybx_tabl_log_stats ( per host, per log_dt, e.g. per ash-loop?, highter freq )
 --      - ybx_indx_mst
 --      - ybx_indx_log ( per snap )
---        - ybx_tabl_log_stats ( per host )
+--        - ybx_ndx_log_stats ( per host )
 --    note: bcse tables and indexes can be discovered during host-log, 
 --      they can not be linked to (global) snap_id, or they need a snap-sequene local to host
 --
@@ -66,7 +63,6 @@
 --    - long running job for testing : mk_longt.sql and tlong.sql
 --
 --  Questions:
---  - keys for mast_mst, -log and tsrv_mst, -log: better  uuid (as text, no dashes)
 --  - add to snpshot + tsrv_log: fields from select * from yb_servers_metrics () ;
 --  - query: are dbid + userid part of qry-mst ? : no, bcse ash only has qry_id
 --  - does a query-log link to a top-level-id or to a root_req?
@@ -88,12 +84,12 @@
 --  - queries: 
 --      - ybx_quer_mst : id + text, keep once.. 
 --      - ybx_quer_log : id, per host, per log_dt, cumulative pg_stat_statements
+--      - ybx_qury_pln : for explain-plan
 --      - ybx_quer_rtrq : id per root_req, link of query to session via root_req
+--      - explain leads to double enties in pg_stat_statement Beware
 --
---  - rr_qry, link to root_req + 
---
---  - tablets: alwys per host, bse coming from yb_local_tablets.
---      - ybx_tblt_mst : tblt_uuid + tsrv_uuid, table_id ? role..
+--  - tablets: log is alwys per host, bse coming from yb_local_tablets.
+--      - ybx_tblt_mst : tblt_uuid, no other info.. virtual entity...
 --        Can a tablet occur multiple times on a tsrv, when moving around.. yes 
 --
 -- todo process

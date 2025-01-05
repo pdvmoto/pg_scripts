@@ -3,7 +3,9 @@
 
   usage: deploy this sql to create all logging tables and functions.
 
-  1. this file
+  1. this file, to create
+    1a: tables
+    1b: functions
   2. do_ashloop + st_ashloop.sh
   3. uname.sql + sh (can include in ashloop?)
   4. do_snap.sh on 1 node
@@ -25,6 +27,12 @@ todo:
     - tblt_rep : replica per node.. , should hve role (lead/follow) and state (tombst)
     - tablet repl can have gone-dt per node.. tablet_mst: gone_dt only when tble gone.
 
+in case we need:
+with s as ( select max ( id ) as snap_id from ybx_snap_log )
+insert into ybx_tsrv_mst ( snap_id, host, tsrv_uuid ) 
+select snap_id, host, tsrv_uuid 
+from ybx_tsrv_log s
+where snap_id = s.snap_id ;
 */
 
 /* 
@@ -36,38 +44,47 @@ the order of drop is important..
 drop table ybx_kvlog ; 
 drop table ybx_intf ; 
 
-drop table ybx_datb_log ; 
-drop table ybx_datb_mst ; 
 
-drop table ybx_tabl_log ; 
-drop table ybx_tabl_mst ; 
+drop table ybx_ashy_log ;
 
-drop table ybx_tblt_log ; 
-drop table ybx_tblt_rep ; 
-drop table ybx_tblt_mst ; 
+drop table ybx_tblt_rep ;
+drop table ybx_tabl_log ;
 
-drop table ybx_ashy_log ; 
+drop table ybx_tata_lnk ;
 
-drop table ybx_sess_log ; 
-drop table ybx_sess_mst ; 
+drop table ybx_tblt_mst ;
+drop table ybx_tabl_mst ;
 
-drop table ybx_qury_log ; 
-drop table ybx_qury_mst ; 
-
-drop table ybx_tsrv_log ;
-drop table ybx_tsrv_mst ;
+drop table ybx_qury_log ;
+drop table ybx_sess_log ;
 
 drop table ybx_mast_log ;
+drop table ybx_tsrv_log ;
+drop table ybx_univ_log ;
+
+drop table ybx_datb_log ;
+drop table ybx_datb_mst ;
+
+
+
+drop table ybx_qury_pln ;
+drop table ybx_qury_mst ;
+
+drop table ybx_sess_mst ;
+
+drop table ybx_tsrv_mst ;
 drop table ybx_mast_mst ;
 
 drop table ybx_host_log ;
 drop table ybx_host_mst ;
+drop table ybx_univ_mst ;
 
-drop table ybx_univ_log ;
-drop table ybx_univ_mst ; 
+drop table ybx_snap_log ;
+-- there is no snap_mst, yet
 
-drop table ybx_snap_log ; 
-drop table ybx_snap_mst ; 
+
+\! echo dropping... done.
+
 
 -- functions have replace, redefine will work
 -- drop function ybx_get_datb () ; 
@@ -118,6 +135,9 @@ create table ybx_intf (
 , slurp   text
 ) ;
 
+\! echo .
+\! echo '-- -- -- -- SNAP nd UNIV -- -- -- --'
+\! echo .
 
 -- the main snapshot table. parent-FK to some of the logs
 -- consider : phase out.. snap_id of limited use bcse logging on many servers.
@@ -152,9 +172,13 @@ create table ybx_univ_mst (
 , info        text -- just grab the json, can always filter later
 , constraint ybx_univ_log_pk primary key ( snap_id, univ_uuid )
 , constraint ybx_univ_log_fk_snap foreign key ( snap_id ) references ybx_snap_log ( id )
---, constraint to univ_mst..
+-- , constraint ybx_univ_log_fk_univ foreign key ( univ_uuid ) references ybx_univ_mst ( univ_uuid )
+-- log_host is FK to host, but not very relevant (yet) ?
 ) ;
 
+\! echo . 
+\! echo '-- -- -- -- HOST -- -- -- -- '
+\! echo . 
 
 -- the host, equivalent of hostname, $HOSTNAME, "linux-server" or "machine", or "container".
 -- drop table ybx_host_mst ;
@@ -180,12 +204,17 @@ create table ybx_host_log (
 ) ;
 
 
+\! echo .
+\! echo '-- -- -- -- MASTER and T-SERVER and LOGs -- -- -- -- '
+\! echo .
+
 -- drop table ybx_mast_mst ;
  create table ybx_mast_mst (
   snap_id     bigint
 , mast_uuid   uuid
 , host        text
 , log_dt      timestamp with time zone default now() 
+, log_host    text      default ybx_get_host () -- informational, Which host did logging
 , constraint ybx_mast_mst_pk primary key ( mast_uuid )
 , constraint ybx_mast_mst_fk_snap foreign key ( snap_id ) references ybx_snap_log ( id )
 ) ;
@@ -219,7 +248,7 @@ create table ybx_tsrv_mst (
 -- serves as FK to several, notably tsrv_log, sess_mst, host, root_req, and ash?
 
 -- drop table ybx_tsrv_log ;
-create table ybx_tsrv_log (
+ create table ybx_tsrv_log (
   snap_id     bigint    not null 
 , tsrv_uuid   uuid      not null
 , host        text
@@ -234,34 +263,36 @@ create table ybx_tsrv_log (
    , constraint ybx_tsrv_log_pk primary key ( snap_id, tsrv_uuid )
 -- , constraint ybx_tsrv_log_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
    , constraint ybx_tsrv_log_fk_snap foreign key ( snap_id   ) references ybx_snap_log ( id )
--- , constraint yb_tsrv_log_fk_host foreign key ( host      ) references ybx_host_mst ( host ) 
+-- , constraint ybx_tsrv_log_fk_host foreign key ( host      ) references ybx_host_mst ( host ) 
 ) ;
 -- note: add tserver_metrics(), to this record
 -- there are no evident futher dependetns, hence no id neede as key?
 
--- -- -- -- DATABASE -- -- -- 
+
+\! echo .
+\! echo '-- -- -- -- DATABASE and LOG -- -- -- '
+\! echo .
 
 -- drop table ybx_datb_mst ; 
  create table ybx_datb_mst (
   datid     oid not null primary key
 , datname   text
-, host      text                      default ybx_get_host()   -- logged at host
+, log_host  text                      default ybx_get_host()   -- logged at host
 , log_dt    timestamp with time zone  default now()  
 );
 -- key is oid, snap_id just host+dt where it was found
 
--- drop table ybx_data_log ; 
--- id+host+log_dt are generated, 
+-- datab_log: id+host+log_dt are generated, 
 -- other fields from pg_stat_database
 -- doesnt really need ID ?? datid, tsrv/host, log_dt are real key? 
 -- note: no snap_id, bcse log is per host, and snap_id is global
 -- drop table ybx_datb_log ; 
  create table ybx_datb_log (
   id          bigint        generated always as identity primary key
+, datid       oid           -- fk to mst
 , tsrv_uuid   uuid          default ybx_get_tsrv( ybx_get_host () ) 
-, host        text          default ybx_get_host() 
+, log_host    text          default ybx_get_host() 
 , log_dt      timestamp with time zone    default now ()
-, datid         oid         -- fk to mst
 , numbackends   integer                  
 , xact_commit   bigint                  
 , xact_rollback bigint                  
@@ -288,54 +319,24 @@ create table ybx_tsrv_log (
 , sessions_fatal          bigint           
 , sessions_killed         bigint          
 , stats_reset             timestamp with time zone 
--- unique: tsrv + datid + log_dt 
-) ; 
+-- , constraint ybx_datb_log_fk_datb foreign key ( datid     ) references ybx_datb_mst ( datid    )
+-- , constraint ybx_datb_log_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
+-- , constraint ybx_datb_log_uk unique key ( datid, tsrv_uuid, log_dt ) -- purely info..
+) ;
 
-alter table ybx_datb_log 
-  add constraint ybx_datb_log_fk_mst foreign key ( datid ) 
-                         references ybx_datb_mst ( datid ) ; 
+-- alter table ybx_datb_log 
+--   add constraint ybx_datb_log_fk_mst foreign key ( datid ) 
+--                          references ybx_datb_mst ( datid ) ; 
 
 -- with skip-scan, only one of the indexes would suffice ? 
-create unique index ybx_datb_log_dh on ybx_datb_log ( datid, host,  log_dt ); 
-create        index ybx_datb_log_hd on ybx_datb_log ( host,  datid, log_dt ); 
+-- and why does index on empty table take so long? 
+create unique index ybx_datb_log_dh on ybx_datb_log ( datid,  log_host, log_dt ); 
+create        index ybx_datb_log_hd on ybx_datb_log ( log_host,  datid, log_dt ); 
 
 
--- -- -- -- TABLETS -- -- -- --   
-
--- DROP TABLE ybx_tblt_mst;
- CREATE TABLE ybx_tblt_mst (
-  tblt_uuid     uuid        not null    primary key,    -- only 1 mst per tablet
-  found_dt      timestamptz not null    default now(), 
-  tsrv_found    uuid        not null        default ybx_get_tsrv ( ybx_get_host() ),
-  host_found    text        not null        default ybx_get_host(), 
-  gone_dt       timestamptz,                -- use not-null to signal complete removal
-  tabl_uuid     text        not NULL,
-  table_type        text NULL,
-  namespace_name    text NULL,
-  ysql_schema_name  text NULL,
-  table_name        text NULL,
-  partition_key_start   bytea NULL,
-  partition_key_end     bytea NULL
--- , constraint uniquye/pk: tblt, other info goes in _rep or _log
--- , constraint : FKs to tsrv, datb(oid, datid), user (oid), table (oid)
-) ; 
-
--- smller table just to keep track of tablet replicas and movements
--- not the found_dt could be min-sample-time from ash as well
--- DROP TABLE ybx_tblt_rep ;
- CREATE TABLE ybx_tblt_rep (
-  id            bigint GENERATED ALWAYS AS IDENTITY primary key, -- find pk later
-  tblt_uuid     uuid        not null,       -- only 1 replica per tsrv
-  tsrv_uuid     uuid        not null        default ybx_get_tsrv ( ybx_get_host() ),
-  host          text        not null        default ybx_get_host(), 
-  found_dt      timestamptz not null        default now(),  -- or min-ash-sampletime
-  gone_dt       timestamptz,                -- use not-null to signal removal
-  role          text        not null,       -- leader / follower / other ?  
-  state         text                        -- notably: tombstoned ?  
--- , constraint uniquye/pk: tsrv + tblt + log_dt : bcause tblt has replicas
-) ; 
-
--- -- -- -- SESSIONS -- -- --
+\! echo .
+\! echo '-- -- -- -- SESSION MASTER and LOGs -- -- -- -- '
+\! echo .
 
 -- drop table ybx_sess_mst ;
 create table ybx_sess_mst (
@@ -352,15 +353,62 @@ create table ybx_sess_mst (
 , usesysid          oid
 , leader_pid        int
 , app_name          text    -- from pg_stat_activity
--- , constraint ybx_sess_log_fk_trsr foreign key (tsrv_uuid) references ybx_tsrv_mst ( tsrv_uuid ) 
--- unique: tsrv_uuid + pid + backend_start
--- also: client+adr+port + start backend
+-- , constraint ybx_sess_mst_uk_pid unique ( tsrv_uuid, pid, backend_start )
+-- , constraint ybx_sess_mst_uk_clt unique ( client_addr, client_port, backend_start )
+, constraint ybx_sess_tsrv_fk foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
+-- constraint datid FK to datb_mst
 -- Q: is usesysid same as user-id ?
--- if FK to ash or roor_req, need to insert based on ash...
--- polling: how frequent... sessions can be <1sec.
+-- if FK to ash or root_req, need to insert based on ash...
+-- polling: how frequent... sessions can live <1sec.
 -- some provision to catch the ones not found via pg_stat_activity.. merge some from  ash ?
 ) ;
 
+-- session log info comes from pg_stat_activity previous: ybx_pgs_acct
+-- (and others  ? )
+-- pk can be sess_id + log_dt ? we dont expect (many) dependents of sess-log,
+-- some/many data-items can go to sess_mst
+-- and ts_uuid not needed, bcse session (sess_mst) is already linked to tsrv_uuid
+-- drop table ybx_sess_log ;
+ create table ybx_sess_log (
+  sess_id           bigint
+, log_dt            timestamp with time zone default now()
+, tsrv_uuid         uuid not null , -- 
+  datid           oid         NULL, -- 
+  datname         name        NULL, -- 
+  pid             int4        NULL, -- can go, but informative 
+  leader_pid      int4        NULL, -- 
+  usesysid        oid         NULL, -- 
+  usename         name        NULL, -- 
+  application_name text       NULL, -- 
+  client_addr     inet        NULL, -- 
+  client_hostname text        NULL, -- 
+  client_port     int4        NULL, -- 
+  backend_start   timestamptz NULL, -- ^ can go
+  xact_start      timestamptz NULL,
+  query_start     timestamptz NULL,
+  state_change    timestamptz NULL,
+  wait_event_type text NULL,
+  wait_event      text NULL,
+  state           text NULL,
+  backend_xid     xid NULL,
+  backend_xmin    xid NULL,
+  query_id        bigint NULL,
+  query           text NULL,
+  backend_type    text NULL,
+  catalog_version         int8 NULL,
+  allocated_mem_bytes     int8 NULL,
+  rss_mem_bytes   int8 NULL,
+  yb_backend_xid uuid NULL
+, constraint ybx_sess_log_pk      primary key ( sess_id, log_dt )
+, constraint ybx_sess_log_fk_sess foreign key ( sess_id ) references ybx_sess_mst ( id )
+-- constr: qry_id, yb_backend_xid ?
+-- datid: already in mst
+);
+
+
+\! echo .
+\! echo '-- -- -- -- QUERY and LOG -- -- -- -- '
+\! echo .
 
 -- Queries... mst is just lookup, bcse Ash only has query-id, not usr, dbid...
 
@@ -368,7 +416,8 @@ create table ybx_sess_mst (
  create table ybx_qury_mst (  
   queryid     bigint not null primary key
 , log_dt      timestamp with time zone  default now()  
-, found_at_host text                    default ybx_get_host()    -- consider FK, but no real need..
+, log_tsrv    uuid          -- default get_tsrv() consider FK, but no real need..
+, log_host    text          -- default ybx_get_host() -- just for curiousity sake
 , query       text
 ) ;     
 -- serves as fk to many.
@@ -376,7 +425,7 @@ create table ybx_sess_mst (
 -- hence dbid and userid not in qury_mst, but may be needed in _log or others
 
 -- add defaults for 0-6, find desc
-insert into ybx_qury_mst (queryid, found_at_host, query ) values
+insert into ybx_qury_mst (queryid, log_host, query ) values
   ( 0, ybx_get_host(), '0 zero')
 , ( 1, ybx_get_host(), '1 one')
 , ( 2, ybx_get_host(), '2 flush')
@@ -385,7 +434,9 @@ insert into ybx_qury_mst (queryid, found_at_host, query ) values
 , ( 5, ybx_get_host(), '5 five')
 , ( 6, ybx_get_host(), '6 six') ;
 
+
 -- qury_log: is for the moment yb_pgs_stmt
+-- data from pg_stat_statement
 -- later provide more complete stats by saving every x seconds
 
 -- drop table ybx_qury_log ;
@@ -393,7 +444,6 @@ insert into ybx_qury_mst (queryid, found_at_host, query ) values
   queryid     bigint    not null
 , tsrv_uuid   uuid      not null
 , log_dt      timestamp with time zone not null default now()
-, placeholder             text
 , userid                  oid              
 , dbid                    oid             
 , toplevel                boolean        
@@ -436,13 +486,106 @@ insert into ybx_qury_mst (queryid, found_at_host, query ) values
 , jit_emission_count      bigint          
 , jit_emission_time       double precision 
 , yb_latency_histogram    jsonb            
-, constraint ybx_qury_log_pk primary key ( queryid, tsrv_uuid, log_dt ) 
-, constraint ybx_qury_log_fk_query foreign key ( queryid ) references ybx_qury_mst ( queryid ) 
+, constraint ybx_qury_log_pk primary key ( queryid, tsrv_uuid, log_dt )
+, constraint ybx_qury_log_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
+, constraint ybx_qury_log_fk_qury foreign key ( queryid   ) references ybx_qury_mst ( queryid ) 
 ) ; 
 -- qury_log is copy of pg_stat_statements
 
+-- drop table ybx_qury_pln ;
+ create table ybx_qury_pln (
+  id          bigint generated always as identity
+, queryid     bigint    not null
+, tsrv_uuid   uuid      not null                default ybx_get_tsrv ( ybx_get_host() ) 
+, log_dt      timestamp with time zone not null default now()
+, plan_info   text
+, constraint ybx_qury_pln_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
+, constraint ybx_qury_pln_fk_qury foreign key ( queryid   ) references ybx_qury_mst ( queryid )
+) ;
 
+
+\! echo .
+\! echo '-- -- -- -- TABLE and TABLET and LOGs -- -- -- -- '
+\! echo .
+
+-- assume table_ID (uuid) is unique inside a cluster or universe ?
+-- drop table ybx_tabl_mst ;
+ create table ybx_tabl_mst (
+  tabl_uuid       uuid primary key
+, oid             oid
+, datid           oid     -- fk to database
+, schemaname      text
+, tableowner      text
+, relkind         text
+, constraint ybx_tabl_mst_fk_datb foreign key ( datid ) references ybx_datb_mst ( datid )
+);
+
+-- for future use...
+-- note that the log is local to a tsrv, and has log_dt as key-field
+-- drop table ybx_tabl_log ;
+ create table ybx_tabl_log (
+  tabl_uuid         uuid
+, tsrv_uuid         uuid    default ybx_get_tsrv ( ybx_get_host() )
+, log_dt            timestamp with time zone default now()
+, table_info        text -- log/save time-dependent info from pg_stats or pg_tables
+, constraint ybx_tabl_log_pk primary key ( tabl_uuid, tsrv_uuid, log_dt )
+, constraint ybx_tabl_log_fk_tabl foreign key ( tabl_uuid ) references ybx_tabl_mst ( tabl_uuid )
+, constraint ybx_tabl_log_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
+) ;
+
+
+-- tablet master is rather abstract, but needed to link to tata and tables/indexs/etc
+-- the actual 3 or 5 replicas will appear in the _log
+-- drop table ybx_tblt_mst ;
+ create table ybx_tblt_mst (
+  tblt_uuid       uuid      not null  primary key
+, tabl_uuid       uuid      NULL      -- does NOT apply to COLOCATED objects
+, log_tsrv        uuid      null      default ybx_get_tsrv ( ybx_get_host() )  -- information only, e.g. is where this tablet is detected
+, log_dt          timestamp with time zone  not null default  now ()
+, gone_dt         timestamp with time zone      null  -- null signals tablet still exists, in use
+, log_host        text      null      default ybx_get_host() -- just or info
+, table_type            text NULL,
+  namespace_name        text NULL,
+  ysql_schema_name      text NULL,
+  table_name            text NULL,
+  partition_key_start   bytea NULL,
+  partition_key_end     bytea NULL
+-- , constraint ybx_tblt_mst_fk_tsrv foreign key ( log_tsrv ) references ybx_tsrv_mst ( tsrv_uuid )
+-- , constraint possible FKs to tsrv, datb(oid, datid), user (oid), table (oid)
+-- link or constraint to datb oid or datid? No bcse tablet not known to postgres
+) ;
   
+-- tablet replica: one of the copies of a tablet..
+-- this is a physical item (file) kept on a tsrv , and can move/change over time..
+-- smller table just to keep track of tablet replicas and movements
+-- note that the log_dt could be min-sample-time from ash as well
+-- drop table ybx_tblt_rep ;
+ create table ybx_tblt_rep (
+  tblt_uuid         uuid not null
+, tsrv_uuid         uuid not null                     default ybx_get_tsrv ( ybx_get_host() ) 
+, log_dt            timestamp with time zone not null default now ()
+, gone_dt           timestamp with time zone null        -- null signifies: still Active, in useoo
+, role              text not null default '-undetected-'
+, state             text not null default '-undetected-'
+, constraint ybx_tblt_rep_pk primary key  ( tblt_uuid, tsrv_uuid, log_dt )  
+-- tablet local to 1 tsrv, but can move in multiple times
+, constraint ybx_tblt_rep_fk_tblt foreign key ( tblt_uuid ) references ybx_tblt_mst ( tblt_uuid )
+, constraint ybx_tblt_rep_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
+-- link or constraint to datb oid or datid? No, bcse tablet not know to postgres
+) ;
+
+-- in case of COLOCATED: table - tablet is an n:n..
+-- link-table
+-- drop table ybx_tata_lnk
+ create table ybx_tata_lnk (
+  tabl_uuid         uuid not null
+, tblt_uuid         uuid not null
+, log_dt            timestamp with time zone default now ()
+, constraint ybx_tata_lnk_uk      primary key ( tabl_uuid, tblt_uuid ) 
+, constraint ybx_tata_lnk_fk_tabl foreign key ( tabl_uuid ) references ybx_tabl_mst ( tabl_uuid )
+, constraint ybx_tata_lnk_fk_tblt foreign key ( tblt_uuid ) references ybx_tblt_mst ( tblt_uuid )
+) ;
+
 -- -- -- -- ASH -- -- -- --
 
 -- note id is PK for the moment, but comby of tsrv + sample-time is expected unique..
@@ -622,7 +765,7 @@ function : ybx_get_qury();
 collect SQL from ash + pg_stat_stmnts + pg_stat_activity for current node
 and update any empty qry text if possible, with pg_stat as source
 
-todo: qury_log not done yet...
+todo: qury_log not done yet...!  ybx_pgs_stmt currently loggin stmnts
 
 returns total nr of records
 
@@ -649,8 +792,9 @@ BEGIN
 
   RAISE NOTICE 'ybx_get_qury() : starting..' ;
 
-  insert /*qury_1 from ash */ into ybx_qury_mst ( queryid, found_at_host, log_dt )
-    select a.query_id, this_host, min ( a.sample_time ) 
+  -- note tsrv + host can use dflts
+  insert /*qury_1 from ash */ into ybx_qury_mst ( queryid, log_tsrv, log_host, log_dt )
+    select a.query_id, ybx_get_tsrv ( this_host), this_host, min ( a.sample_time ) 
     from yb_active_session_history a            -- consider select from table after gathering data ?
     where a.sample_time > ( start_dt - make_interval ( secs=>900 ) )
       and not exists ( select 'x' from ybx_qury_mst m where m.queryid = a.query_id ) 
@@ -661,8 +805,8 @@ BEGIN
 
   RAISE NOTICE 'ybx_get_qury() from ash : % '     , n_qrys_ash ;
 
-  insert /*qury_2 from act */ into ybx_qury_mst ( queryid, found_at_host, log_dt, query )
-    select a.query_id, this_host, min ( coalesce ( a.query_start, clock_timestamp() ) ), min ( a.query)
+  insert /* qury_2 from act */ into ybx_qury_mst ( queryid, log_tsrv, log_host, log_dt, query )
+    select a.query_id, ybx_get_tsrv ( this_host), this_host, min ( coalesce ( a.query_start, clock_timestamp() ) ), min ( a.query)
       from pg_stat_activity a
      where not exists ( select 'x' from ybx_qury_mst m where m.queryid = a.query_id ) 
        and a.query_id is not null
@@ -674,8 +818,9 @@ BEGIN
   RAISE NOTICE 'ybx_get_qury() from act : % '     , n_qrys_act ;
 
   -- consider a merge with 4.. 
-  insert /*qury_3 from stmt */ into ybx_qury_mst ( queryid, found_at_host, query )
-    select s.queryid, min ( this_host ) , min ( s.query ) -- explain appears with same queryid 
+  -- use dflt for log_dt
+  insert /*qury_3 from stmt */ into ybx_qury_mst ( queryid, query )
+    select s.queryid,  min ( s.query ) -- explain appears with same queryid 
       from pg_stat_statements s
      where not exists ( select 'x' from ybx_qury_mst m where m.queryid = s.queryid )  
     group by s.queryid ;  -- note the min-query : bcse multiple texts can exist?
@@ -703,13 +848,15 @@ BEGIN
 
   RAISE NOTICE 'ybx_get_qury() elapsed : % ms'     , duration_ms ;
 
-  cmmnt_txt := 'get_qury: from_ash: '  || n_qrys_ash 
-                    || ', from_act: '  || n_qrys_act 
-                    || ', from_stmt: ' || n_qrys_stmt 
-                    || ', from upd: '  || n_qrys_upd || '.';
+  cmmnt_txt := 'get_qury_mst from : ash: '  || n_qrys_ash 
+                              || ', act: '  || n_qrys_act 
+                              || ', stmt: ' || n_qrys_stmt 
+                              || ', upd: '  || n_qrys_upd || '.';
 
   insert into ybx_log ( logged_dt, host,       component,     ela_ms,      info_txt )
          select clock_timestamp(), ybx_get_host(), 'ybx_get_qury', duration_ms, cmmnt_txt ;
+
+  -- -- -- now do the qury_LOG data... 
 
   -- end of fucntion..
   return retval ;
@@ -865,9 +1012,10 @@ DECLARE
 BEGIN
 
 -- insert any new-found tablets
-with /* get_tblt_1 */ 
-  h as ( select ybx_get_host () as host )
-insert into ybx_tblt_mst (
+-- with /* get_tblt_1 */ 
+--   h as ( select ybx_get_host () as host )
+
+insert /* get_tblt_1 */ into ybx_tblt_mst (
   tblt_uuid,
   tabl_uuid ,
   table_type ,
@@ -886,7 +1034,7 @@ select
   table_name ,
   partition_key_start ,
   partition_key_end
-from yb_local_tablets t, h h
+from yb_local_tablets t
 where not exists (
   select 'x' from ybx_tblt_mst m
   where 1=1 
@@ -900,19 +1048,15 @@ retval := retval + n_mst_created ;
 RAISE NOTICE 'ybx_get_tblt() mst_created : % tblts' , n_mst_created ; 
 
 -- insert Replicas..this node only
-with /* get_tblt_2 */ 
-  h as ( select ybx_get_host () as host )
-insert into ybx_tblt_rep (
-  tblt_uuid    -- tsrv, host, found.. all defaut to correct values, check
-, role
+insert /* get_tblt_2 */ into ybx_tblt_rep (
+  tblt_uuid    -- tsrv, host, log_dt, role, state, .. all defaut to correct values, check
 )
 select
   l.tablet_id::uuid
-, '-unknown-'
-from yb_local_tablets l, h h
+from yb_local_tablets l
 where not exists (
   select 'x' from ybx_tblt_rep r
-  where r.tsrv_uuid       = ybx_get_tsrv( ybx_get_host() )   -- better use tsrv_uuid ?
+  where r.tsrv_uuid       = ybx_get_tsrv( ybx_get_host() )   
   and   r.tblt_uuid       = l.tablet_id::uuid 
   and   r.gone_dt         is null  --  catch moving + returning tablets 
   ) ;
@@ -922,9 +1066,7 @@ retval := retval + n_rep_created ;
 RAISE NOTICE 'ybx_get_tblt() rep_created : % tblts'  , n_rep_created ; 
 
 -- detect gone-replicas
-with /* get_tblt_3 */ 
-  h as ( select ybx_get_host () as host )
-update ybx_tblt_rep r 
+update /* get_tblt_3 */ ybx_tblt_rep r 
   set gone_dt = start_dt 
 where 1=1 
 and   r.gone_dt    is null                            -- has no end time yet
@@ -941,9 +1083,7 @@ RAISE NOTICE 'ybx_get_tblt() rep_gone : % tblts'  , n_rep_gone ;
 
 -- update the gone_date on mst if tablet no longer present in replicas..
 -- signal gone_date if ... gone
-with /* get_tblt_4 */ 
-  h as ( select ybx_get_host () as host )
-update ybx_tblt_mst m 
+update /* get_tblt_4 */ ybx_tblt_mst m 
   set gone_dt = start_dt 
 where 1=1 
 and   m.gone_dt    is null            -- no end time yet
@@ -982,6 +1122,8 @@ $$
 function : ybx_get_ashy();
 
 new version, for table ybx_ashy..
+
+todo: move pgs_stmt to qury_log..
 
 collect ash + pg_stat_stmnts + pg_stat_activity for current node
 returns total nr of records
@@ -1270,13 +1412,14 @@ $$
 select ybx_get_datb ();
 
 select * from ybx_datb_mst ; 
-select * from ybx_datb_log order by log_dt desc limit 3; 
+select * from ybx_datb_log order by log_dt desc limit 1; 
 
 select ybx_get_qury ();
 select * from ybx_qury_mst order by log_dt desc limit 1; 
 
 select ybx_get_sess ();
 select * from ybx_sess_mst order by backend_start desc limit 3; 
+select * from ybx_sess_log order by backend_start desc limit 3; 
 
 select ybx_get_ashy ();
 select * from ybx_ashy_log order by sample_time desc limit 3; 
