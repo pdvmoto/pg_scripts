@@ -11,17 +11,19 @@
 
 
 todo: 
+ - define views to clarify (join) data, for ex: tblt, session: join to show host
  - in do_snap: also collect missing mast_mst and tsrv_mst 
    manual workaround 
     insert into ybx_tsrv_mst  ( snap_id, host, tsrv_uuid )
     select snap_id, host, tsrv_uuid from ybx_tsrv_log 
-    where snap_id = 1;
+    where snap_id = 1; -- any single valid snap_id..
  - qury_log, add logs records per run from pg_stat_stmnt
- - uncomment FKs
+ - uncomment FKs:  but need ensure parent-records present...
  - replace host by tsrv_uuid in queries for tsrv, mast, sess, where host=..
- - get_ashy : use dflts host, tsrv, and use function to get tblt_uuid
  - get_ashy : stmnt and activity can move to qury + sess ? 
-n
+ - tblt_mst : is per  tablet, so no link to node/tsrv.. ? 
+    - tblt_rep : replica per node.. , should hve role (lead/follow) and state (tombst)
+    - tablet repl can have gone-dt per node.. tablet_mst: gone_dt only when tble gone.
 
 */
 
@@ -41,6 +43,7 @@ drop table ybx_tabl_log ;
 drop table ybx_tabl_mst ; 
 
 drop table ybx_tblt_log ; 
+drop table ybx_tblt_rep ; 
 drop table ybx_tblt_mst ; 
 
 drop table ybx_ashy_log ; 
@@ -297,6 +300,41 @@ create unique index ybx_datb_log_dh on ybx_datb_log ( datid, host,  log_dt );
 create        index ybx_datb_log_hd on ybx_datb_log ( host,  datid, log_dt ); 
 
 
+-- -- -- -- TABLETS -- -- -- --   
+
+-- DROP TABLE ybx_tblt_mst;
+ CREATE TABLE ybx_tblt_mst (
+  tblt_uuid     uuid        not null    primary key,    -- only 1 mst per tablet
+  found_dt      timestamptz not null    default now(), 
+  tsrv_found    uuid        not null        default ybx_get_tsrv ( ybx_get_host() ),
+  host_found    text        not null        default ybx_get_host(), 
+  gone_dt       timestamptz,                -- use not-null to signal complete removal
+  tabl_uuid     text        not NULL,
+  table_type        text NULL,
+  namespace_name    text NULL,
+  ysql_schema_name  text NULL,
+  table_name        text NULL,
+  partition_key_start   bytea NULL,
+  partition_key_end     bytea NULL
+-- , constraint uniquye/pk: tblt, other info goes in _rep or _log
+-- , constraint : FKs to tsrv, datb(oid, datid), user (oid), table (oid)
+) ; 
+
+-- smller table just to keep track of tablet replicas and movements
+-- not the found_dt could be min-sample-time from ash as well
+-- DROP TABLE ybx_tblt_rep ;
+ CREATE TABLE ybx_tblt_rep (
+  id            bigint GENERATED ALWAYS AS IDENTITY primary key, -- find pk later
+  tblt_uuid     uuid        not null,       -- only 1 replica per tsrv
+  tsrv_uuid     uuid        not null        default ybx_get_tsrv ( ybx_get_host() ),
+  host          text        not null        default ybx_get_host(), 
+  found_dt      timestamptz not null        default now(),  -- or min-ash-sampletime
+  gone_dt       timestamptz,                -- use not-null to signal removal
+  role          text        not null,       -- leader / follower / other ?  
+  state         text                        -- notably: tombstoned ?  
+-- , constraint uniquye/pk: tsrv + tblt + log_dt : bcause tblt has replicas
+) ; 
+
 -- -- -- -- SESSIONS -- -- --
 
 -- drop table ybx_sess_mst ;
@@ -447,6 +485,10 @@ insert into ybx_qury_mst (queryid, found_at_host, query ) values
 
 -- logging of databases: get_datb
 -- logging session: get_sess() : both mst + log
+-- logging queries: get_qury() : fow now just mst, 
+--    qury_log will be similar to pg_stmt, and activity
+-- logging of tablets : 
+-- logging ash: get_ashy() : mainly ash, but stil does activity
 
 /* ****
 
@@ -791,8 +833,151 @@ END; -- ybx_get_sess, to incrementally populate table
 $$
 ; 
 
+/* **************** GET TABLETS ******************
 
-/* *****************************************************************
+function : ybx_get_tblts();
+
+collect ybx_tblt with local tablets, local to current node
+handles both mst (parent needed) and replica (local)
+
+returns total nr of records inserted and updated
+
+todo: how to spot tablet-replicas from nodes that have dissapeared... ? 
+
+*/
+
+CREATE OR REPLACE FUNCTION ybx_get_tblt()
+  RETURNS bigint
+  LANGUAGE plpgsql
+AS $$
+DECLARE
+  nr_rec_processed bigint         := 0 ;
+  n_mst_created     bigint            := 0 ;
+  n_rep_created     bigint            := 0 ;
+  n_mst_gone    bigint            := 0 ;
+  n_rep_gone    bigint            := 0 ;
+  n_gone        bigint            := 0 ;
+  start_dt      timestamp         := clock_timestamp();
+  end_dt        timestamp         := now() ;
+  duration_ms   double precision  := 0.0 ;
+  retval        bigint            := 0 ;
+  cmmnt_txt     text              := ' ' ;
+BEGIN
+
+-- insert any new-found tablets
+with /* get_tblt_1 */ 
+  h as ( select ybx_get_host () as host )
+insert into ybx_tblt_mst (
+  tblt_uuid,
+  tabl_uuid ,
+  table_type ,
+  namespace_name ,
+  ysql_schema_name ,
+  table_name ,
+  partition_key_start ,
+  partition_key_end
+)
+select
+  tablet_id::uuid,
+  table_id::uuid tabl_uuid ,
+  table_type ,
+  namespace_name ,
+  ysql_schema_name ,
+  table_name ,
+  partition_key_start ,
+  partition_key_end
+from yb_local_tablets t, h h
+where not exists (
+  select 'x' from ybx_tblt_mst m
+  where 1=1 
+  and   t.tablet_id::uuid   =  m.tblt_uuid
+  and   m.gone_dt           is null  --  catch moving + returning tablets 
+  ) ;
+
+GET DIAGNOSTICS n_mst_created := ROW_COUNT;
+retval := retval + n_mst_created ;
+
+RAISE NOTICE 'ybx_get_tblt() mst_created : % tblts' , n_mst_created ; 
+
+-- insert Replicas..this node only
+with /* get_tblt_2 */ 
+  h as ( select ybx_get_host () as host )
+insert into ybx_tblt_rep (
+  tblt_uuid    -- tsrv, host, found.. all defaut to correct values, check
+, role
+)
+select
+  l.tablet_id::uuid
+, '-unknown-'
+from yb_local_tablets l, h h
+where not exists (
+  select 'x' from ybx_tblt_rep r
+  where r.tsrv_uuid       = ybx_get_tsrv( ybx_get_host() )   -- better use tsrv_uuid ?
+  and   r.tblt_uuid       = l.tablet_id::uuid 
+  and   r.gone_dt         is null  --  catch moving + returning tablets 
+  ) ;
+
+GET DIAGNOSTICS    n_rep_created := ROW_COUNT;
+retval := retval + n_rep_created ;
+RAISE NOTICE 'ybx_get_tblt() rep_created : % tblts'  , n_rep_created ; 
+
+-- detect gone-replicas
+with /* get_tblt_3 */ 
+  h as ( select ybx_get_host () as host )
+update ybx_tblt_rep r 
+  set gone_dt = start_dt 
+where 1=1 
+and   r.gone_dt    is null                            -- has no end time yet
+and   r.tsrv_uuid  = ybx_get_tsrv( ybx_get_host () )  -- same, local tsrv_uuid 
+and not exists (                             -- no more local tblt
+  select 'x' from yb_local_tablets l
+  where   r.tblt_uuid  =  l.tablet_id::uuid
+  )
+;
+
+GET DIAGNOSTICS    n_rep_gone := ROW_COUNT;
+retval := retval + n_rep_gone ;
+RAISE NOTICE 'ybx_get_tblt() rep_gone : % tblts'  , n_rep_gone ; 
+
+-- update the gone_date on mst if tablet no longer present in replicas..
+-- signal gone_date if ... gone
+with /* get_tblt_4 */ 
+  h as ( select ybx_get_host () as host )
+update ybx_tblt_mst m 
+  set gone_dt = start_dt 
+where 1=1 
+and   m.gone_dt    is null            -- no end time yet
+and not exists (                      -- no more open replicas
+  select 'x' from ybx_tblt_rep r
+  where   m.tblt_uuid  =  r.tblt_uuid
+  and     m.gone_dt    is null        -- reps no longer existing...  
+  )
+;
+
+GET DIAGNOSTICS    n_mst_gone := ROW_COUNT;
+retval := retval + n_mst_gone ;
+RAISE NOTICE 'ybx_get_tblt() mst_gone : % tblts'  , n_mst_gone ; 
+
+duration_ms := EXTRACT ( MILLISECONDS from ( clock_timestamp() - start_dt ) ) ; 
+
+RAISE NOTICE 'ybx_get_tblt() elapsed  : % ms'     , duration_ms ; 
+
+cmmnt_txt := 'm_created: ' || n_mst_created 
+        || ', r_created: ' || n_rep_created 
+        || ', r_gone: '    || n_rep_gone 
+        || ', m_gone: '    || n_mst_gone || '.' ;
+
+insert into ybx_log ( logged_dt, host,       component,     ela_ms,      info_txt )
+       select clock_timestamp(), ybx_get_host(), 'ybx_get_tblt', duration_ms, cmmnt_txt ; 
+
+  -- end of fucntion..
+  return retval ;
+
+END; -- function ybx_get_tblt: to get_tablets
+$$
+;
+
+/* ******************* ASH ****************************************
 
 function : ybx_get_ashy();
 
@@ -1074,7 +1259,11 @@ $$
 ;
 
 
-\! read -t 10 -p "check before testing " abc
+\! echo .
+\! echo .
+\! read -t 10 -p "10sec to check before testing, or hit enter  " abc
+\! echo .
+\! echo .
 
 \set ECHO all 
 
@@ -1091,6 +1280,10 @@ select * from ybx_sess_mst order by backend_start desc limit 3;
 
 select ybx_get_ashy ();
 select * from ybx_ashy_log order by sample_time desc limit 3; 
+
+select ybx_get_tblt() ;
+select * from ybx_tblt_mst limit 4; 
+select * from ybx_tblt_rep limit 4; 
 
 \set ECHO none 
 
