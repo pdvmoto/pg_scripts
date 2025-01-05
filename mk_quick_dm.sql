@@ -488,6 +488,7 @@ create table ybx_ashy_log (
   tsrv_uuid               uuid not null,
   host                  text NULL,
   sample_time           timestamptz  NULL,
+  sess_id               bigint not null,
   root_request_id       uuid NULL,
   rpc_request_id        bigint default 0,
   wait_event_component  text NULL,
@@ -506,8 +507,9 @@ create table ybx_ashy_log (
   wait_event_type       text NULL,
     ysql_dbid              oid NULL
 , constraint ybx_ashy_log_tblt_fk foreign key ( tblt_uuid ) references ybx_tblt_mst ( tblt_uuid ) 
-, constraint ybx_ashy_log_qury_fk foreign key ( query_id ) references ybx_qury_mst ( queryid ) 
+, constraint ybx_ashy_log_qury_fk foreign key ( query_id  ) references ybx_qury_mst ( queryid ) 
 , constraint ybx_ashy_log_tsrv_fk foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid ) 
+, constraint ybx_ashy_log_sess_fk foreign key ( sess_id   ) references ybx_sess_mst ( id ) 
 -- , constraint ybx_ashy_log_sess_fk foreign key ( client_addr, client_port ) references ybx_sess_mst ( client_addr,client_port ) 
 ) ;
 
