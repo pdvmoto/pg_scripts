@@ -36,6 +36,13 @@ export hostnm=`hostname`
 
 ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5433,localhost:5434?connect_timeout=2 <<EOF
 
+  create table if not exists ybx_ash_rep (
+   id           bigint        generated always as identity
+  , first_dt    timestamptz
+  , last_dt     timestamptz
+  , remark_txt  text
+  );
+
   insert into ybx_ash_rep ( remark_txt, first_dt, last_dt ) 
   select 'report from script do_ashrep.sql' 
        , now() - make_interval ( secs => $n_sec_start ) 
