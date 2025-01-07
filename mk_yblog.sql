@@ -3,9 +3,10 @@
 
   usage: deploy this sql to create all logging tables and functions.
 
-  1. this file, to create
-    1a: tables
-    1b: functions
+  1. this file and subfiles, to 
+    1a: _d to drop tables + fuctions (slow)
+    1b: create tables (slow... and catalog-problems?)
+    1b: _f create functions (faster to create-replace)
   2. do_ashloop + st_ashloop.sh
   3. uname.sql + sh (can include in ashloop?)
   4. do_snap.sh on 1 node
@@ -14,7 +15,7 @@
 
 todo: 
  - define views to clarify (join) data, for ex: tblt, session: join to show host
- - in do_snap: also collect missing mast_mst and tsrv_mst 
+ - in do_snap: also collect missing mast_mst and tsrv_mst : done..
    manual workaround 
     insert into ybx_tsrv_mst  ( snap_id, host, tsrv_uuid )
     select snap_id, host, tsrv_uuid from ybx_tsrv_log 
@@ -36,64 +37,20 @@ where snap_id = s.snap_id ;
 */
 
 /* 
-drop stmts in case needed
+drop stmts in case needed, separate file
 
 the order of drop is important..
 -- - */
 
-drop table ybx_kvlog ; 
-drop table ybx_intf ; 
+-- drop table ybx_kvlog ; 
+-- drop table ybx_intf ; 
 
 
-drop table ybx_ashy_log ;
-
-drop table ybx_tblt_rep ;
-drop table ybx_tabl_log ;
-
-drop table ybx_tata_lnk ;
-
-drop table ybx_tblt_mst ;
-drop table ybx_tabl_mst ;
-
-drop table ybx_qury_log ;
-drop table ybx_sess_log ;
-
-drop table ybx_mast_log ;
-drop table ybx_tsrv_log ;
-drop table ybx_univ_log ;
-
-drop table ybx_datb_log ;
-drop table ybx_datb_mst ;
-
-
-
-drop table ybx_qury_pln ;
-drop table ybx_qury_mst ;
-
-drop table ybx_sess_mst ;
-
-drop table ybx_tsrv_mst ;
-drop table ybx_mast_mst ;
-
-drop table ybx_host_log ;
-drop table ybx_host_mst ;
-drop table ybx_univ_mst ;
-
-drop table ybx_snap_log ;
--- there is no snap_mst, yet
-
-
-\! echo dropping... done.
-
-
--- functions have replace, redefine will work
--- drop function ybx_get_datb () ; 
--- drop function ybx_get_host() ; 
--- drop function ybx_get_tsrv() ; 
+\i mk_yblog_d.sql
 
  */
 
--- -- -- -- HELPER FUNCTIONS -- -- -- --
+-- -- -- -- HELPER FUNCTIONS stay with tables.. -- -- -- --
     
 -- need function to get hostname, faster if SQL function ?
 -- define early bcse used as default for columns
@@ -134,6 +91,21 @@ create table ybx_intf (
 , host    text            default ybx_get_host ()
 , slurp   text
 ) ;
+
+/* generic logging..
+-- drop table ybx_log ;  
+*/
+-- drop table ybx_log; 
+ create table ybx_log (
+    id          bigint        generated always as identity
+  , logged_dt   timestamptz   not null
+  , host        text
+  , component   text
+  , ela_ms      double precision
+  , info_txt   text
+  , constraint ybx_log_pk primary key (logged_dt asc, id  asc)
+  ) ;
+
 
 \! echo .
 \! echo '-- -- -- -- SNAP nd UNIV -- -- -- --'
@@ -209,10 +181,13 @@ create table ybx_host_log (
 \! echo .
 
 -- drop table ybx_mast_mst ;
+-- note: port belongs to master..but stored on both mst + log
+-- note: log_dt could be from snap_id
  create table ybx_mast_mst (
   snap_id     bigint
-, mast_uuid   uuid
+, mast_uuid   uuid 
 , host        text
+, port        int
 , log_dt      timestamp with time zone default now() 
 , log_host    text      default ybx_get_host () -- informational, Which host did logging
 , constraint ybx_mast_mst_pk primary key ( mast_uuid )
@@ -239,14 +214,19 @@ create table ybx_mast_log (
 -- tsever
 -- drop table ybx_tsrv_mst ;
 create table ybx_tsrv_mst (
-  tsrv_uuid   uuid      primary key
+  tsrv_uuid   uuid
 , snap_id     bigint    not null 
 , host        text
-, constraint ybx_tsrv_mst_fk_snap foreign key ( snap_id ) references ybx_snap_log ( id )
+, port        int
+, constraint ybx_tsrv_mst_pk      primary key ( tsrv_uuid )
+, constraint ybx_tsrv_mst_fk_snap foreign key ( snap_id   ) references ybx_snap_log ( id )
 -- , fk to host? 
 ) ;
 -- serves as FK to several, notably tsrv_log, sess_mst, host, root_req, and ash?
 
+-- on tsrv: we scrape from yb-admin, 
+-- plus all fields from yb_tservers_metrics()
+-- there may be overlap, and a lot of the data seems to never change ? 
 -- drop table ybx_tsrv_log ;
  create table ybx_tsrv_log (
   snap_id     bigint    not null 
@@ -260,6 +240,16 @@ create table ybx_tsrv_mst (
 , wr_psec     real
 , uptime      bigint
 -- add fields for server_metrics
+, mem_free_mb            bigint
+, mem_total_mb           bigint
+, mem_aval_mb            bigint
+, ts_root_mem_limit_mb   bigint
+, ts_root_mem_slimit_mb  bigint
+, ts_root_mem_cons_mb    bigint
+, cpu_user    real
+, cpu_syst    real
+, ts_status   text
+, ts_error    text
    , constraint ybx_tsrv_log_pk primary key ( snap_id, tsrv_uuid )
 -- , constraint ybx_tsrv_log_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
    , constraint ybx_tsrv_log_fk_snap foreign key ( snap_id   ) references ybx_snap_log ( id )
@@ -353,9 +343,10 @@ create table ybx_sess_mst (
 , usesysid          oid
 , leader_pid        int
 , app_name          text    -- from pg_stat_activity
+, backend_type      text
 -- , constraint ybx_sess_mst_uk_pid unique ( tsrv_uuid, pid, backend_start )
 -- , constraint ybx_sess_mst_uk_clt unique ( client_addr, client_port, backend_start )
-, constraint ybx_sess_tsrv_fk foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
+-- , constraint ybx_sess_mst_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
 -- constraint datid FK to datb_mst
 -- Q: is usesysid same as user-id ?
 -- if FK to ash or root_req, need to insert based on ash...
@@ -371,8 +362,9 @@ create table ybx_sess_mst (
 -- drop table ybx_sess_log ;
  create table ybx_sess_log (
   sess_id           bigint
+, tsrv_uuid         uuid not null   -- 
 , log_dt            timestamp with time zone default now()
-, tsrv_uuid         uuid not null , -- 
+, host            text,             -- 
   datid           oid         NULL, -- 
   datname         name        NULL, -- 
   pid             int4        NULL, -- can go, but informative 
@@ -437,13 +429,14 @@ insert into ybx_qury_mst (queryid, log_host, query ) values
 
 -- qury_log: is for the moment yb_pgs_stmt
 -- data from pg_stat_statement
--- later provide more complete stats by saving every x seconds
+-- added ID bcse difficult to find working UK/PK from pg_stat_stmts
 
 -- drop table ybx_qury_log ;
  create table ybx_qury_log ( 
-  queryid     bigint    not null
-, tsrv_uuid   uuid      not null
-, log_dt      timestamp with time zone not null default now()
+  id          bigint    generated always as identity primary key
+, tsrv_uuid   uuid      not null default ybx_get_tsrv( ybx_get_host () )
+, queryid     bigint    not null
+, log_dt      timestamp with time zone not null default clock_timestamp() -- will this be unique?
 , userid                  oid              
 , dbid                    oid             
 , toplevel                boolean        
@@ -486,11 +479,12 @@ insert into ybx_qury_mst (queryid, log_host, query ) values
 , jit_emission_count      bigint          
 , jit_emission_time       double precision 
 , yb_latency_histogram    jsonb            
-, constraint ybx_qury_log_pk primary key ( queryid, tsrv_uuid, log_dt )
-, constraint ybx_qury_log_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
-, constraint ybx_qury_log_fk_qury foreign key ( queryid   ) references ybx_qury_mst ( queryid ) 
+-- , constraint ybx_qury_log_pk primary key ( tsrv_uuid, queryid, log_dt, id )
+-- , constraint ybx_qury_log_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
+-- , constraint ybx_qury_log_fk_qury foreign key ( queryid   ) references ybx_qury_mst ( queryid ) 
 ) ; 
 -- qury_log is copy of pg_stat_statements
+-- fks disables for the moment.. needs collecting data in the right order!
 
 -- drop table ybx_qury_pln ;
  create table ybx_qury_pln (
@@ -499,7 +493,7 @@ insert into ybx_qury_mst (queryid, log_host, query ) values
 , tsrv_uuid   uuid      not null                default ybx_get_tsrv ( ybx_get_host() ) 
 , log_dt      timestamp with time zone not null default now()
 , plan_info   text
-, constraint ybx_qury_pln_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
+--, constraint ybx_qury_pln_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
 , constraint ybx_qury_pln_fk_qury foreign key ( queryid   ) references ybx_qury_mst ( queryid )
 ) ;
 
@@ -530,7 +524,7 @@ insert into ybx_qury_mst (queryid, log_host, query ) values
 , table_info        text -- log/save time-dependent info from pg_stats or pg_tables
 , constraint ybx_tabl_log_pk primary key ( tabl_uuid, tsrv_uuid, log_dt )
 , constraint ybx_tabl_log_fk_tabl foreign key ( tabl_uuid ) references ybx_tabl_mst ( tabl_uuid )
-, constraint ybx_tabl_log_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
+-- , constraint ybx_tabl_log_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
 ) ;
 
 
@@ -569,8 +563,8 @@ insert into ybx_qury_mst (queryid, log_host, query ) values
 , state             text not null default '-undetected-'
 , constraint ybx_tblt_rep_pk primary key  ( tblt_uuid, tsrv_uuid, log_dt )  
 -- tablet local to 1 tsrv, but can move in multiple times
-, constraint ybx_tblt_rep_fk_tblt foreign key ( tblt_uuid ) references ybx_tblt_mst ( tblt_uuid )
-, constraint ybx_tblt_rep_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
+-- , constraint ybx_tblt_rep_fk_tblt foreign key ( tblt_uuid ) references ybx_tblt_mst ( tblt_uuid )
+-- , constraint ybx_tblt_rep_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
 -- link or constraint to datb oid or datid? No, bcse tablet not know to postgres
 ) ;
 
@@ -610,10 +604,42 @@ insert into ybx_qury_mst (queryid, log_host, query ) values
   wait_event_aux        text NULL,
   sample_weight         real NULL,
   wait_event_type       text NULL,
-    ysql_dbid              oid NULL
+  ysql_dbid              oid NULL
   --, constraint ybx_ashy_pk primary key ( id )
   --, constraint ybx_ashy_pk primary key ( host/tsrv_uuid , pid, sample_time )
 ) ;
+
+
+-- drop table ybx_evlst ;  
+
+-- \echo ybx_ash_evlst: eventlist, keep track of which eventw we know-of
+
+-- later: connect to yb_wait_event_descr..
+-- drop table ybx_evnt_mst ; 
+ create table ybx_evnt_mst (
+  id                      bigint generated always as identity primary key
+, wait_event_component    text not null
+, wait_event_type         text
+, wait_event_class        text
+, wait_event              text not null
+, log_dt                  timestamptz   default now()
+, log_tsrv                uuid          default ybx_get_tsrv ( ybx_get_host () )
+, log_host                text          default ybx_get_host () 
+, wait_event_notes        text
+--, constraint ybx_evnt_lst_uk unique key ( wait_event_component asc, wait_event )
+--, constraint : tsrv_uuid, host ? purely informative 
+);
+
+
+\echo .
+\echo $0 : tables created. next is function (use separate file.. ) 
+\echo .
+
+
+-- use separate file to develop functions..faster
+\i mk_yblog_f.sql
+
+\q
 
 
 -- now the functions, start with some simple ones,
@@ -898,13 +924,14 @@ BEGIN
   RAISE NOTICE 'ybx_get_sess() : starting..' ;
 
   -- get from pg_stat_activity., the easiest one bcse usually not too many lines (less than ash)
+  -- save log-data for a log-table with time-dependent data
   insert /* get_sess_1 */ into ybx_sess_mst 
-        ( tsrv_uuid, host,     pid, backend_start,        client_addr,         client_port, client_hostname 
-       , datid,   usesysid, leader_pid, app_name ) 
-  select this_tsrv, this_host, pid, backend_start, host ( client_addr) ::text, client_port, client_hostname
-       , datid,   usesysid, leader_pid, application_name
-    -- add some non-log-data here: datid, usesysid, app_name, cl_hostname, backend_type?  
-    -- save log-data for a log-table with time-dependent data
+        ( tsrv_uuid, host,     pid,         backend_start
+       ,  client_addr,         client_port, client_hostname 
+       , datid,               usesysid,     leader_pid, app_name, backend_type ) 
+  select this_tsrv, this_host, pid, backend_start
+       , host ( client_addr) ::text, client_port, client_hostname
+       , datid,               usesysid,     leader_pid, application_name, backend_type
     from pg_stat_activity a 
     where not exists ( select 'X' from ybx_sess_mst m 
                         where this_host             = m.host   -- prefer uuid here...
@@ -964,15 +991,95 @@ BEGIN
 
   duration_ms := EXTRACT ( MILLISECONDS from ( clock_timestamp() - start_dt ) ) ;
 
+  -- for sess_log: just copy whatever is in pg_stat_activity, joint with sess_mst
+
+  -- constants for tsrv+host, dont overuse functions to get tsrv + host: too slow
+  -- with /* get_sess_3_act */ 
+  --   h as ( select ybx_get_host () as host, now() as smpltm )
+  insert /* get_sess_3_act */ into ybx_sess_log (
+    sess_id
+    tsrv_uuid,
+    pid,
+    host ,
+    datid ,
+    datname ,
+    leader_pid , 
+    usesysid ,
+    usename ,
+    application_name ,
+    client_addr ,
+    client_hostname ,
+    client_port ,
+    backend_start ,
+    xact_start ,
+    query_start ,
+    state_change ,
+    wait_event_type ,
+    wait_event ,
+    state ,
+    backend_xid ,
+    backend_xmin ,
+    query_id ,
+    query ,
+    backend_type ,
+    catalog_version ,
+    allocated_mem_bytes ,
+    rss_mem_bytes ,
+    yb_backend_xid 
+    )
+  select 
+    sm.sess_id, 
+    this_tsrv, 
+    pid, 
+    sm.host, 
+    datid ,
+    datname ,
+    leader_pid , 
+    usesysid ,
+    usename ,
+    application_name ,
+    client_addr ,
+    client_hostname ,
+    client_port ,
+    backend_start ,
+    xact_start ,
+    query_start ,
+    state_change ,
+    wait_event_type ,
+    wait_event ,
+    state ,
+    backend_xid ,
+    backend_xmin ,
+    query_id ,
+    query ,
+    backend_type ,
+    catalog_version ,
+    allocated_mem_bytes ,
+    rss_mem_bytes ,
+    yb_backend_xid
+  from pg_stat_activity a
+     , ybx_sess_mst     sm 
+  where sm.tsrv_uuid      = this_tsrv
+    and sm.pid            = a.pid
+    and sm.backend_start  = p.backend_start;
+  -- join pg_stat_act with mst to fetch sess_id, 
+  -- assume datid etc are all functions of PID 
+
+  GET DIAGNOSTICS n_sess_log := ROW_COUNT;
+  retval := retval + n_sess_log ;
+  RAISE NOTICE 'ybx_get_ashy() sess_log : % ' , n_sess_log ; 
+    
+  duration_ms := EXTRACT ( MILLISECONDS from ( clock_timestamp() - start_dt ) ) ;
+
   RAISE NOTICE 'ybx_get_sess() elapsed : % ms'     , duration_ms ;
 
-  cmmnt_txt := 'get_sess: from_ash: '  || n_sess_ash
-                    || ', from_act: '  || n_sess_act 
-                    ||   ', closed: '  || n_sess_upd || '.';
+  cmmnt_txt := 'get_sess: ash: '     || n_sess_ash
+                    || ', act: '     || n_sess_act 
+                    || ', closed: '  || n_sess_upd 
+                    || ', logged: '  || n_sess_log || '.';
 
   insert into ybx_log ( logged_dt, host,       component,     ela_ms,      info_txt )
          select clock_timestamp(), ybx_get_host(), 'ybx_get_sess', duration_ms, cmmnt_txt ;
-
   -- end of fucntion..
   return retval ;   
 
