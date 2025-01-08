@@ -52,7 +52,9 @@ the order of drop is important..
 
  */
 
--- -- -- -- HELPER FUNCTIONS stay with tables.. -- -- -- --
+\! read -t 10 -p "droppings done, now to create helper-functions and tables :" 
+
+\! echo '-- -- -- -- HELPER FUNCTIONS stay with tables.. -- -- -- --'
     
 -- need function to get hostname, faster if SQL function ?
 -- define early bcse used as default for columns

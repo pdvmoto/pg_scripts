@@ -54,8 +54,8 @@ drop function ybx_get_sess() ;
 drop function ybx_get_tblt() ;
 drop function ybx_get_ashy() ;
 
-drop function ybx_get_tsrv() ;
-drop function ybx_get_host() ;
+-- drop function ybx_get_tsrv() ;
+-- drop function ybx_get_host() ;
 
 \! echo .
 \! echo .. dropped, but reminder to check old code...

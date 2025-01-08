@@ -88,7 +88,14 @@ where c.relkind in ('r', 'i', 'm')
 create extension pg_cron ; 
 grant usage on schema cron to yugabyte ; 
 
-
+-- helper function
+CREATE OR REPLACE FUNCTION ybx_get_host()
+RETURNS TEXT AS $$ 
+    SELECT setting 
+    FROM pg_settings
+    WHERE name = 'listen_addresses';
+$$ LANGUAGE sql;
+ 
 
 -- -- -- -- -- -- -- --
 -- function to test cron, included here bcse cront would help collect ash
