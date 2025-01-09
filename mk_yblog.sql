@@ -253,7 +253,7 @@ create table ybx_tsrv_mst (
 -- add fields for server_metrics
 , mem_free_mb            bigint
 , mem_total_mb           bigint
-, mem_aval_mb            bigint
+, mem_avail_mb           bigint
 , ts_root_mem_limit_mb   bigint
 , ts_root_mem_slimit_mb  bigint
 , ts_root_mem_cons_mb    bigint
