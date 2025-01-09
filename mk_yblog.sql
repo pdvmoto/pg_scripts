@@ -14,6 +14,7 @@
   5. cron, if still needed (had old code in get_tablogs... )
 
 todo: 
+ - include blacklisted nodes in get_tsrv, assume tsrv_mst is filled.
  - define views to clarify (join) data, for ex: tblt, session: join to show host
  - in do_snap: collect (scrape) mast_mst and tsrv_mst : done..
    manual workaround 

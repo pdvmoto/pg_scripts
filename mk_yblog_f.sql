@@ -331,6 +331,11 @@ BEGIN
   where 1=1
   and upper ( left ( query, 20 ) ) not like '%EXPLAIN%'  ;
 
+  -- and not exists.. prev record:
+  --  same sql, same datid, user, same tsrv, same nr_rows, same nr calls.. 
+  --  ... date is irrelevant.. as long as not re-strted ? 
+  --  less-rows: will get new insert.. 
+
   -- note: any risk of doubles: avoid explain...
 
   GET DIAGNOSTICS n_qrys_log := ROW_COUNT;
