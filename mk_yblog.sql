@@ -76,6 +76,15 @@ RETURNS uuid AS $$
     WHERE host = p_host;
 $$ LANGUAGE sql;
 
+CREATE OR REPLACE FUNCTION ybx_get_tsrv( p_host text )
+RETURNS uuid AS $$
+with h as ( select ybx_get_host() as host )
+select coalesce ( 
+   (select s.uuid::uuid from yb_servers() s where s.host = h.host ) 
+ , (select m.tsrv_uuid from ybx_tsrv_mst m where m.host = h.host )
+) as tsrv_result
+from h; 
+$$ LANGUAGE sql;
 
 \!echo .
 \!echo '-- -- -- -- HELPER TABLES, may already exist... -- -- -- --'
@@ -641,6 +650,62 @@ insert into ybx_qury_mst (queryid, log_host, query ) values
 --, constraint : tsrv_uuid, host ? purely informative 
 );
 
+-- view to use in grafana..  ybG..
+-- drop view ybg_tsrv_rwr; 
+ create view ybg_tsrv_rwr as 
+select sl.log_dt
+, t2.rd_psec n2_rds
+, t2.wr_psec n2_wrs
+, t3.rd_psec n3_rds
+, t3.wr_psec n3_wrs
+, t4.rd_psec n4_rds
+, t4.wr_psec n4_wrs
+, t5.rd_psec n5_rds
+, t5.wr_psec n5_wrs
+from ybx_snap_log sl
+   , ybx_tsrv_log t2
+   , ybx_tsrv_log t3
+   , ybx_tsrv_log t4
+   , ybx_tsrv_log t5
+where  1=1
+ and sl.id = t2.snap_id 
+ and sl.id = t3.snap_id
+ and sl.id = t4.snap_id
+ and sl.id = t5.snap_id
+ and t2.host = 'node2'
+ and t3.host = 'node3'
+ and t4.host = 'node4'
+ and t5.host = 'node5'
+order by sl.log_dt  ; 
+
+
+-- drop view ybg_tsrv_cpu; 
+ create view ybg_tsrv_cpu as 
+select sl.log_dt
+, t2.cpu_user n2_usr
+, t2.cpu_syst n2_sys
+, t3.cpu_user n3_usr
+, t3.cpu_syst n3_sys
+, t4.cpu_user n4_usr
+, t4.cpu_syst m4_sys
+, t5.cpu_user m5_usr
+, t5.cpu_syst m5_sys
+from ybx_snap_log sl
+   , ybx_tsrv_log t2
+   , ybx_tsrv_log t3
+   , ybx_tsrv_log t4
+   , ybx_tsrv_log t5
+where  1=1
+ and sl.id = t2.snap_id 
+ and sl.id = t3.snap_id
+ and sl.id = t4.snap_id
+ and sl.id = t5.snap_id
+ and t2.host = 'node2'
+ and t3.host = 'node3'
+ and t4.host = 'node4'
+ and t5.host = 'node5'
+order by sl.log_dt  ; 
+
 
 \echo .
 \echo $0 : tables created. next is function (use separate file.. ) 
@@ -649,4 +714,51 @@ insert into ybx_qury_mst (queryid, log_host, query ) values
 
 -- use separate file to develop functions..faster
 \i mk_yblog_f.sql
+
+-- exit here, notes below.....
+\q
+
+
+-- to find delta-values for databases, for Grafana..
+-- per node and per datid
+
+select datid
+, log_host
+,    log_dt
+, sessions 
+,    sessions     - LAG(sessions)     OVER (PARTITION BY log_host ORDER BY log_dt) AS delta_sess
+,    tup_returned - LAG(tup_returned) OVER (PARTITION BY log_host ORDER BY log_dt) AS delta_tup_ret
+,    (temp_bytes  - LAG(temp_bytes)   OVER (PARTITION BY log_host ORDER BY log_dt))/1024/1024 AS delta_temp_mb
+, tup_returned, temp_bytes
+FROM
+    ybx_datb_log l
+WHERE
+   log_host = 'node3'
+   and datid = 13515
+ORDER By
+    log_dt  desc 
+limit 100;
+
+
+-- one way to provoke long running sql...
+
+\timing on
+
+with /* long1 */ 
+  s1 as ( select id, substring ( payload from 100 for 3 )  as sub from t_rnd )
+, s2 as ( select id, substring ( payload from 900 for 3 )  as sub from t_rnd )
+, s3 as ( select id, substring ( payload from 500 for 3 )  as sub from t_rnd )
+select s1.id, s2.id , s3.id 
+from s1, s2, s3
+where s1.sub = s2.sub
+  and s2.sub = s3.sub
+  and s3.id < 10000 
+  and s2.id < 10000 
+order by  s3.sub
+ ;
+
+\timing off
+
+
+
 

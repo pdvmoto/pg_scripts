@@ -167,7 +167,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5433,localhost:5434?con
   -- and wait_event_component not in ('YCQL')
   group by tm.host, a.wait_event_aux, tb.ysql_schema_name, tb.table_name
   order by 1 desc, 2
-  limit 90 ;
+  limit 20 ;
 
   \! echo .
   \! echo now the busiest query in the interval, e.g. most logged events.
@@ -231,7 +231,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5433,localhost:5434?con
   and   ya.root_request_id::text  not   like '000%'
   group by ya.pid, qm.queryid
   order by 1 desc
-  limit 40;
+  limit 20;
 
   -- slowest run  + count of each query
   with intv as  /* q02 final xtab nrs*/
@@ -243,7 +243,8 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5433,localhost:5434?con
   --,  ( max ( sample_time) -  min (sample_time )) as itervr
   ,  trunc ( extract ( epoch from  max ( sample_time) -  min (sample_time ) ) ) as max_sec 
   , count (*) nr_occ
-  , qm.query
+  -- , qm.query
+  , substr ( replace ( qm.query, chr(10), ' ' ), 1, 60)  as    Query
   from ybx_ash        al
      , ybx_qury_mst   qm 
      , intv           i

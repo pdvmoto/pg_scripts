@@ -141,6 +141,8 @@ END; -- ybx_get_datb, to incrementally populate table
 $$
 ; 
 
+
+
 -- -- -- -- GET QUERIES -- -- -- --  
 
 /* *****************************************************************
@@ -329,7 +331,17 @@ BEGIN
     yb_latency_histogram 
   from pg_stat_statements s
   where 1=1
-  and upper ( left ( query, 20 ) ) not like '%EXPLAIN%'  ;
+  and upper ( left ( query, 20 ) ) not like '%EXPLAIN%'    
+  and not exists ( select 'x' from ybx_qury_log ol
+       where ol.queryid     =   s.queryid
+         and ol.tsrv_uuid   =   this_tsrv
+         and ol.dbid        = s.dbid
+        and ol.userid       = s.userid
+        and ol.toplevel     = s.toplevel
+        and ol.rows         = s.rows
+        and ol.calls        = s.calls
+) ; 
+
 
   -- and not exists.. prev record:
   --  same sql, same datid, user, same tsrv, same nr_rows, same nr calls.. 
@@ -361,6 +373,7 @@ BEGIN
 END; -- ybx_get_qury, to incrementally populate table
 $$
 ;
+
 
 -- -- -- -- GET SESS -- -- -- --
 
