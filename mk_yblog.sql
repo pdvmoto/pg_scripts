@@ -14,16 +14,18 @@
   5. cron, if still needed (had old code in get_tablogs... )
 
 todo: 
- - include blacklisted nodes in get_tsrv, assume tsrv_mst is filled.
+ - include blacklisted nodes in get_tsrv, assume tsrv_mst is filled.: done, check
+ - include tserver processes in session-mst, longest running..
  - define views to clarify (join) data, for ex: tblt, session: join to show host
  - in do_snap: collect (scrape) mast_mst and tsrv_mst : done..
-   manual workaround 
+   manual workaround  if needed:
     insert into ybx_tsrv_mst  ( snap_id, host, tsrv_uuid )
     select snap_id, host, tsrv_uuid from ybx_tsrv_log 
     where snap_id = 1; -- any single valid snap_id..
  - qury_log, add logs records per run from pg_stat_stmnt: done, testing.
  - uncomment FKs:  but need ensure parent-records present...
  - replace host by tsrv_uuid in queries for tsrv, mast, sess, where host=..
+    but add views to join host in for select-group purposes
  - get_ashy : stmnt and activity can move to qury + sess ? : done
  - tblt_mst : is per  tablet, so no link to node/tsrv.. ? 
     - tblt_rep : replica per node.. , should hve role (lead/follow) and state (tombst)
@@ -71,14 +73,14 @@ $$ LANGUAGE sql;
 -- note : wont work for blacklisted node.. need ybx_tsrv_mst for that
 CREATE OR REPLACE FUNCTION ybx_get_tsrv( p_host text )
 RETURNS uuid AS $$
-    SELECT uuid::uuid
+    SELECT /* f_get_host */ uuid::uuid
     FROM yb_servers () 
     WHERE host = p_host;
 $$ LANGUAGE sql;
 
 CREATE OR REPLACE FUNCTION ybx_get_tsrv( p_host text )
 RETURNS uuid AS $$
-with h as ( select ybx_get_host() as host )
+with /* f_get_tsrv */ h as ( select ybx_get_host() as host )
 select coalesce ( 
    (select s.uuid::uuid from yb_servers() s where s.host = h.host ) 
  , (select m.tsrv_uuid from ybx_tsrv_mst m where m.host = h.host )
@@ -705,6 +707,29 @@ where  1=1
  and t4.host = 'node4'
  and t5.host = 'node5'
 order by sl.log_dt  ; 
+
+
+
+-- view for information purposes: summary of tables + sizes
+-- todo: include indexes.. 
+create or replace view ybx_logg_inf as 
+select i.oid, i.relname, i.num_tablets, i.size_bytes/1024/1024 as size_mb
+--, i.* 
+, cnt_rows ( schemaname, relname  )  
+from ybx_tblinfo i
+where relkind = 'r'
+and i.relname in ( 
+select relname 
+from pg_class 
+where relname like 'ybx_univ%'
+or relname like 'ybx_host%'
+or relname like 'ybx_tsrv%'
+or relname like 'ybx_mast%'
+or relname like 'ybx_sess%'
+or relname like 'ybx_qury%'
+or relname like 'ybx_ashy%'
+)
+order by i.oid, i.relname ; 
 
 
 \echo .
