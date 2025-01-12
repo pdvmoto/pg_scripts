@@ -45,7 +45,7 @@ BEGIN
 
   RAISE NOTICE 'ybx_get_datb() : starting..' ;
 
-  insert into ybx_datb_mst (  datid,   datname ) 
+  insert /* get_datb_1_mst */ into ybx_datb_mst (  datid,   datname ) 
   select                    d.datid, d.datname 
   from pg_catalog.pg_stat_database d
   where not exists  ( select 'x' 
@@ -58,7 +58,7 @@ BEGIN
   RAISE NOTICE 'ybx_get_datb() nr new : % ', n_datb_new ;
 
   -- the log-data.. 
-  insert into ybx_datb_log ( 
+  insert /* get_datb_2_log */ into ybx_datb_log ( 
       datid         
     , numbackends  
     , xact_commit 
@@ -184,7 +184,7 @@ BEGIN
   this_tsrv := ybx_get_tsrv( this_host ) ; 
 
   -- note tsrv + host can use dflts
-  insert /*qury_1 from ash */ 
+  insert /* qury_1 from ash */ 
   into ybx_qury_mst ( queryid, log_tsrv, log_host, log_dt )
     select a.query_id, this_tsrv, this_host, min ( a.sample_time ) 
     from yb_active_session_history a            -- consider select from table after gathering data ?
@@ -341,7 +341,6 @@ BEGIN
         and ol.rows         = s.rows
         and ol.calls        = s.calls
 ) ; 
-
 
   -- and not exists.. prev record:
   --  same sql, same datid, user, same tsrv, same nr_rows, same nr calls.. 

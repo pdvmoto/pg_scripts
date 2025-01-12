@@ -16,6 +16,7 @@
 todo: 
  - include blacklisted nodes in get_tsrv, assume tsrv_mst is filled.: done, check
  - include tserver processes in session-mst, longest running..
+ - detect host_mst (preferably inside do_ash.sql ? )
  - define views to clarify (join) data, for ex: tblt, session: join to show host
  - in do_snap: collect (scrape) mast_mst and tsrv_mst : done..
    manual workaround  if needed:
@@ -27,6 +28,7 @@ todo:
  - replace host by tsrv_uuid in queries for tsrv, mast, sess, where host=..
     but add views to join host in for select-group purposes
  - get_ashy : stmnt and activity can move to qury + sess ? : done
+ - tblt_mst: detection and detect of gone_dt not 100%, needs careful testing?
  - tblt_mst : is per  tablet, so no link to node/tsrv.. ? 
     - tblt_rep : replica per node.. , should hve role (lead/follow) and state (tombst)
     - tablet repl can have gone-dt per node.. tablet_mst: gone_dt only when tble gone.
@@ -441,14 +443,21 @@ create table ybx_sess_mst (
 -- add defaults for 0-6, find desc
 insert into ybx_qury_mst (queryid, log_host, query ) values
   ( 0, ybx_get_host(), '0 zero')
-, ( 1, ybx_get_host(), '1 one')
-, ( 2, ybx_get_host(), '2 flush')
+, ( 1, ybx_get_host(), '1 LogAppender')
+, ( 2, ybx_get_host(), '2 Flush')
 , ( 3, ybx_get_host(), '3 compaction')
-, ( 4, ybx_get_host(), '4 four')
-, ( 5, ybx_get_host(), '5 five')
-, ( 6, ybx_get_host(), '6 six') ;
+, ( 4, ybx_get_host(), '4 RaftUpdateConsensus')
+, ( 5, ybx_get_host(), '5 CatalogRequests')
+, ( 6, ybx_get_host(), '6 LogBackgroundSync') ;
 
-
+/*
+when 1 then '-- background: kQueryIdForLogAppender'
+when 2 then '-- background: kQueryIdForFlush'
+when 3 then '-- background: kQueryIdForCompaction'
+when 4 then '-- background: kQueryIdForRaftUpdateConsensus'
+when 5 then '-- background: kQueryIdForCatalogRequests'
+when 6 then '-- background: kQueryIdForLogBackgroundSync'
+*/ 
 -- qury_log: is for the moment yb_pgs_stmt
 -- data from pg_stat_statement
 -- added ID bcse difficult to find working UK/PK from pg_stat_stmts
@@ -721,13 +730,14 @@ where relkind = 'r'
 and i.relname in ( 
 select relname 
 from pg_class 
-where relname like 'ybx_univ%'
-or relname like 'ybx_host%'
-or relname like 'ybx_tsrv%'
-or relname like 'ybx_mast%'
-or relname like 'ybx_sess%'
-or relname like 'ybx_qury%'
-or relname like 'ybx_ashy%'
+where  relname like 'ybx_univ%'
+    or relname like 'ybx_host%'
+    or relname like 'ybx_tsrv%'
+    or relname like 'ybx_mast%'
+    or relname like 'ybx_sess%'
+    or relname like 'ybx_qury%'
+    or relname like 'ybx_tblt%'
+    or relname like 'ybx_ashy%'
 )
 order by i.oid, i.relname ; 
 

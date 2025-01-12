@@ -16,7 +16,7 @@
 # , min ( sample_time), max (sample_time )	
 # ,  ( max ( sample_time) -  min (sample_time )) as itervr
 # ,  extract ( epoch from  max ( sample_time) -  min (sample_time ) ) as sec 
-# from ybx_ash a
+# from ybx_ashy_log a
 # where a.root_request_id::text not like '0000%'
 # and query_id not between  -100 and 100 
 # group by a.root_request_id , a.query_id
@@ -131,7 +131,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5433,localhost:5434?con
       , wait_event_type
       , wait_event   as   busiest_event
       , ya.host      as   per_host
-  from ybx_ash ya
+  from ybx_ashy_log ya
      , intv i
   where 1=1
   and ya.sample_time between i.first_dt and i.last_dt
@@ -245,7 +245,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5433,localhost:5434?con
   , count (*) nr_occ
   -- , qm.query
   , substr ( replace ( qm.query, chr(10), ' ' ), 1, 60)  as    Query
-  from ybx_ash        al
+  from ybx_ashy_log   al
      , ybx_qury_mst   qm 
      , intv           i
   where 1=1
