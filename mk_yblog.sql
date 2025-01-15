@@ -66,7 +66,7 @@ the order of drop is important..
 -- note: also need ybx_get_tsuuid 
 CREATE OR REPLACE FUNCTION ybx_get_host()
 RETURNS TEXT AS $$
-    SELECT setting 
+    SELECT /* ybx_g_host() */ setting 
     FROM pg_settings
     WHERE name = 'listen_addresses';
 $$ LANGUAGE sql;
@@ -75,7 +75,7 @@ $$ LANGUAGE sql;
 -- note : wont work for blacklisted node.. need ybx_tsrv_mst for that
 CREATE OR REPLACE FUNCTION ybx_get_tsrv( p_host text )
 RETURNS uuid AS $$
-    SELECT /* f_get_host */ uuid::uuid
+    SELECT /* f_get_tsrv_old */ uuid::uuid
     FROM yb_servers () 
     WHERE host = p_host;
 $$ LANGUAGE sql;

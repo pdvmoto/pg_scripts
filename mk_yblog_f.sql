@@ -244,8 +244,10 @@ BEGIN
   -- we ignore activity we could spot from yb_active_sess_hist for the moment
   -- note: explain causes duplicte queryids... 
   -- use dflts for tsrv_uuid, host  and log_dt
+  -- todo: using dflts fog get_host and get_tsrv is not efficient !
   insert /* get_qury_5_logs */ into ybx_qury_log ( 
     queryid,
+    tsrv_uuid, 
     userid , 
     dbid , 
     toplevel ,
@@ -289,6 +291,7 @@ BEGIN
   )
   select 
     queryid,
+    this_tsrv,
     userid , 
     dbid , 
     toplevel ,
@@ -351,7 +354,7 @@ BEGIN
 
   GET DIAGNOSTICS n_qrys_log := ROW_COUNT;
   retval := retval + n_qrys_log ;
-  RAISE NOTICE 'ybx_get_ashy() logged from pg_stat_stmts : % ' , n_qrys_log ; 
+  RAISE NOTICE 'ybx_get_qury() logged from pg_stat_stmts : % ' , n_qrys_log ; 
 
   duration_ms := EXTRACT ( MILLISECONDS from ( clock_timestamp() - start_dt ) ) ;
 
@@ -553,7 +556,7 @@ BEGIN
 
   GET DIAGNOSTICS n_sess_log := ROW_COUNT;
   retval := retval + n_sess_log ;
-  RAISE NOTICE 'ybx_get_ashy() sess_log : % ' , n_sess_log ; 
+  RAISE NOTICE 'ybx_get_sess() sess_log : % ' , n_sess_log ; 
     
   duration_ms := EXTRACT ( MILLISECONDS from ( clock_timestamp() - start_dt ) ) ;
 
@@ -734,13 +737,18 @@ DECLARE
   start_dt      timestamp         := clock_timestamp();
   end_dt        timestamp         := now() ;
   duration_ms   double precision  := 0.0 ;
-  cmmnt_txt      text              := 'comment ' ;
+  this_host      text             := ybx_get_host () ; 
+  this_tsrv      uuid                               ;
+  cmmnt_txt      text             := 'comment ' ;
 BEGIN
 
+this_tsrv := ybx_get_tsrv( this_host ) ; 
+
 -- ash-records, much faster using with clause ?
+-- todo: avoid the dflts for host + tsrv_uuid: function calls not efficient
 with /* get_ash_1 */ 
-  h as ( select ybx_get_host () as host )
-, t as ( select ybx_get_tsrv ( ybx_get_host () ) tsrv_uuid )
+  h as ( select this_host as host )
+, t as ( select this_tsrv as tsrv_uuid )
 -- , l as ( select al.* from ybx_ash al 
 --              where al.host = ybx_get_host()
 --                and al.sample_time > (now() - interval '900 sec' ) )
