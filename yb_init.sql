@@ -91,7 +91,7 @@ grant usage on schema cron to yugabyte ;
 -- helper function
 CREATE OR REPLACE FUNCTION ybx_get_host()
 RETURNS TEXT AS $$ 
-    SELECT setting 
+    SELECT /* yb_init_get_host */ setting 
     FROM pg_settings
     WHERE name = 'listen_addresses';
 $$ LANGUAGE sql;
@@ -135,8 +135,11 @@ $$
 -- check 2 sec, find results in ybx_log
 select ybx_testcron ( ) as testcron ;
 
+-- schedule a test job..
+select cron.schedule ('*/3 * * * *', $$ select ybx_testcron(); $$)
+where not exists ( select 'x' from cron.job j where j.command like '%ybx_testcron%' );
 
-
+select * from cron.job ;
 
 \echo finally, report the database, and show if it is colocated
 \echo .

@@ -13,6 +13,7 @@ where 1=1
 and ash.pid = act.pid
 and act.state = 'active'
 and act.query like '%itsme%'
+and pg_sleep ( 2 ) is not null 
 group by 1, 2
 ;
 

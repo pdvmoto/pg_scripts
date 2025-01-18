@@ -448,7 +448,8 @@ insert into ybx_qury_mst (queryid, log_host, query ) values
 , ( 3, ybx_get_host(), '3 compaction')
 , ( 4, ybx_get_host(), '4 RaftUpdateConsensus')
 , ( 5, ybx_get_host(), '5 CatalogRequests')
-, ( 6, ybx_get_host(), '6 LogBackgroundSync') ;
+, ( 6, ybx_get_host(), '6 LogBackgroundSync')
+, ( 7, ybx_get_host(), '7 cron ?') ;
 
 /*
 when 1 then '-- background: kQueryIdForLogAppender'
@@ -741,6 +742,20 @@ where  relname like 'ybx_univ%'
 )
 order by i.oid, i.relname ; 
 
+
+create view ybx_wait_typ as (
+select /* Graph01: w_ev_class */ date_trunc( 'minutes' , sample_time) as dt 
+, sum ( case a.wait_event_type when 'Timeout' then 1 else 0 end ) as Timeout
+, sum ( case a.wait_event_type when 'Network' then 1 else 0 end ) as Network
+, sum ( case a.wait_event_type when 'DiskIO' then 1 else 0 end ) as DiskIO
+, sum ( case a.wait_event_type when 'WaitOnCondition' then 1 else 0 end ) as WaitOnCondition
+, sum ( case a.wait_event_type when 'IO' then 1 else 0 end ) as IO
+, sum ( case a.wait_event_type when 'Client' then 1 else 0 end ) as Cliet
+, sum ( case a.wait_event_type || '_'|| a.wait_event when 'Cpu_OnCpu_Active'  then 1 else 0 end ) as Cpu_Active
+, sum ( case a.wait_event_type || '_'|| a.wait_event when 'Cpu_OnCpu_Passive' then 1 else 0 end ) as CpuPassive
+from ybx_ashy_log a
+group by 1 
+order by dt );
 
 \echo .
 \echo $0 : tables created. next is function (use separate file.. ) 
