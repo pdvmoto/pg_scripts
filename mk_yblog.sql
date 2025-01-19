@@ -641,6 +641,9 @@ when 6 then '-- background: kQueryIdForLogBackgroundSync'
   --, constraint ybx_ashy_pk primary key ( host/tsrv_uuid , pid, sample_time )
 ) ;
 
+-- experimental index, covers the insert-exist stmnt
+create index ybx_ashy_log_i2 on ybx_ashy_log 
+( root_request_id, sample_time, host, rpc_request_id, wait_event );
 
 -- drop table ybx_evlst ;  
 
@@ -733,6 +736,7 @@ select relname
 from pg_class 
 where  relname like 'ybx_univ%'
     or relname like 'ybx_host%'
+    or relname like 'ybx_datb%'
     or relname like 'ybx_tsrv%'
     or relname like 'ybx_mast%'
     or relname like 'ybx_sess%'

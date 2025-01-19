@@ -594,18 +594,23 @@ CREATE OR REPLACE FUNCTION ybx_get_tblt()
   LANGUAGE plpgsql
 AS $$
 DECLARE
-  nr_rec_processed bigint         := 0 ;
+  this_host         text ;
+  this_tsrv         uuid ;
+  nr_rec_processed  bigint            := 0 ;
   n_mst_created     bigint            := 0 ;
   n_rep_created     bigint            := 0 ;
-  n_mst_gone    bigint            := 0 ;
-  n_rep_gone    bigint            := 0 ;
-  n_gone        bigint            := 0 ;
-  start_dt      timestamp         := clock_timestamp();
-  end_dt        timestamp         := now() ;
-  duration_ms   double precision  := 0.0 ;
-  retval        bigint            := 0 ;
-  cmmnt_txt     text              := ' ' ;
+  n_mst_gone        bigint            := 0 ;
+  n_rep_gone        bigint            := 0 ;
+  n_gone            bigint            := 0 ;
+  start_dt          timestamp         := clock_timestamp();
+  end_dt            timestamp         := now() ;
+  duration_ms       double precision  := 0.0 ;
+  retval            bigint            := 0 ;
+  cmmnt_txt         text              := ' ' ;
 BEGIN
+
+this_host = ybx_get_host ();
+this_tsrv = ybx_get_tsrv ( this_host ) ;
 
 -- insert any new-found tablets
 -- with /* get_tblt_1 */ 
@@ -652,7 +657,7 @@ select
 from yb_local_tablets l
 where not exists (
   select 'x' from ybx_tblt_rep r
-  where r.tsrv_uuid       = ybx_get_tsrv( ybx_get_host() )   
+  where r.tsrv_uuid       = this_tsrv
   and   r.tblt_uuid       = l.tablet_id::uuid 
   and   r.gone_dt         is null  --  catch moving + returning tablets 
   ) ;
@@ -665,8 +670,8 @@ RAISE NOTICE 'ybx_get_tblt() rep_created : % tblts'  , n_rep_created ;
 update /* get_tblt_3 */ ybx_tblt_rep r 
   set gone_dt = start_dt 
 where 1=1 
-and   r.gone_dt    is null                            -- has no end time yet
-and   r.tsrv_uuid  = ybx_get_tsrv( ybx_get_host () )  -- same, local tsrv_uuid 
+and   r.gone_dt    is null                   -- has no end time yet
+and   r.tsrv_uuid  = this_tsrv               -- same, local tsrv_uuid 
 and not exists (                             -- no more local tblt
   select 'x' from yb_local_tablets l
   where   r.tblt_uuid  =  l.tablet_id::uuid
@@ -750,7 +755,7 @@ with /* get_ash_1 */
   h as ( select this_host as host )
 , t as ( select this_tsrv as tsrv_uuid )
 -- , l as ( select al.* from ybx_ash al 
---              where al.host = ybx_get_host()
+--              where al.host = this_host
 --                and al.sample_time > (now() - interval '900 sec' ) )
 insert into ybx_ashy_log  (
   tsrv_uuid
@@ -811,7 +816,7 @@ RAISE NOTICE 'ybx_get_ashy() elapsed : % ms'     , duration_ms ;
 cmmnt_txt := 'ashy: ' || n_ashrecs || '.'; 
 
 insert into ybx_log ( logged_dt, host,       component,     ela_ms,      info_txt )
-       select clock_timestamp(), ybx_get_host(), 'ybx_get_ash', duration_ms, cmmnt_txt ; 
+       select clock_timestamp(), ybx_get_host(), 'ybx_get_ashy', duration_ms, cmmnt_txt ; 
 
 -- end of fucntion..
 return retval ;
