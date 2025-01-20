@@ -90,9 +90,13 @@ select coalesce (
 from h; 
 $$ LANGUAGE sql;
 
-\!echo .
-\!echo '-- -- -- -- HELPER TABLES, may already exist... -- -- -- --'
-\!echo .
+\! echo .
+\! echo '-- -- expect error: function needs table and table needs function... -- --'
+\! echo .
+
+\! echo .
+\! echo '-- -- -- -- HELPER TABLES, may already exist... -- -- -- --'
+\! echo .
 
 
 /* generic logging..  */
@@ -725,6 +729,7 @@ order by sl.log_dt  ;
 
 -- view for information purposes: summary of tables + sizes
 -- todo: include indexes.. 
+--           drop view ybx_logg_inf ; 
 create or replace view ybx_logg_inf as 
 select i.oid, i.relname, i.num_tablets, i.size_bytes/1024/1024 as size_mb
 --, i.* 
@@ -747,7 +752,8 @@ where  relname like 'ybx_univ%'
 order by i.oid, i.relname ; 
 
 
-create view ybx_wait_typ as (
+-- drop view ybx_wait_typ ; 
+ create view ybx_wait_typ as (
 select /* Graph01: w_ev_class */ date_trunc( 'minutes' , sample_time) as dt 
 , sum ( case a.wait_event_type when 'Timeout' then 1 else 0 end ) as Timeout
 , sum ( case a.wait_event_type when 'Network' then 1 else 0 end ) as Network
@@ -760,6 +766,20 @@ select /* Graph01: w_ev_class */ date_trunc( 'minutes' , sample_time) as dt
 from ybx_ashy_log a
 group by 1 
 order by dt );
+
+\echo .
+\echo $0 ': -- -- -- re create function after table is created -- -- -- -- '
+\echo .
+
+CREATE OR REPLACE FUNCTION ybx_get_tsrv( p_host text )
+RETURNS uuid AS $$
+with /* f_get_tsrv */ h as ( select ybx_get_host() as host )
+select coalesce (
+   (select s.uuid::uuid from yb_servers() s where s.host = h.host )
+ , (select m.tsrv_uuid from ybx_tsrv_mst m where m.host = h.host )
+) as tsrv_result
+from h;
+$$ LANGUAGE sql;
 
 \echo .
 \echo $0 : tables created. next is function (use separate file.. ) 

@@ -10,6 +10,12 @@
 -- drop table ybx_log ; 
 -- drop table ybx_evnt_mst ;
 
+drop view ybg_tsrv_rwr ; 
+drop view ybg_tsrv_cpu ; 
+drop view ybx_logg_inf ;
+drop view ybx_wait_typ ;
+
+-- the tables
 
 drop table ybx_ashy_log ;
 

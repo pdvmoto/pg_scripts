@@ -21,6 +21,12 @@ create table t_spc (
 , payload text 
 ) ;
 
+create table t_lll ( 
+  id bigint generated always as identity primary key 
+, created_dt timestamptz default now()
+, payload text 
+) ;
+
 select relname tblname, fn_cnt_i ( relname ) num_recs, num_tablets, size_bytes /(1024*1024) mb  
 from ybx_tblinfo 
 where relname like 't\____'
@@ -39,6 +45,10 @@ insert into t_rnd ( payload )
      || sha512 ( random()::text::bytea  )::text
      || sha512 ( random()::text::bytea  )::text
  from generate_series ( 1, 10000);
+
+insert into t_lll ( payload ) 
+ select md5 ( random()::text::bytea  )::text
+ from generate_series ( 1, 100000);
 
 insert into t_spc ( payload ) 
  select lpad ( '', 1024 ) 
@@ -67,10 +77,14 @@ insert into t_rnd ( payload )
      || sha512 ( random()::text::bytea  )::text
      || sha512 ( random()::text::bytea  )::text
      || sha512 ( random()::text::bytea  )::text
- from generate_series ( 1, 190000);
+ from generate_series ( 1, 90000);
 
 -- select sum ( length ( payload ) ) / (1024*1024) as rnd_payload_200M from t_rnd ;; 
 -- select pg_table_size ( 't_rnd' )  / (1024*1024) as rnd_tab_size_200M ;
+
+insert into t_lll ( payload ) 
+ select md5 ( random()::text::bytea  )::text
+ from generate_series ( 1, 900000);
 
 insert into t_spc ( payload ) 
  select lpad ( '', 1024 ) 

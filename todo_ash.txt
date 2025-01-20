@@ -1,0 +1,27 @@
+
+1. Query : find query-details from ash:
+  - which root_id, list in order of time (last 1hr)
+  - longest root_id (min/max)
+  - session, app-name if know..
+
+2. RR: find details on a root-req:
+    - which app + where + when
+    - how long was session..
+    - which queries in the rr (in order of sample-time, with duration)
+    - sequentially: the ash-recs (how to display per nodes...)
+
+3. relate queries to tab/indx and tab/ind to queries..
+
+
+start with:
+ - extract root requests: 
+    rr_uuid, start/end, session: sess_id => tsrv +pid+start_dt 
+    - disintct rr + min/max.
+    - then find session where min-rr is inside sess start/end 
+ - extract combis of rr + query (with start_dt + end dt + ... ? )
+ - based on qury: list RRs  (in given time-frame, say last hr)
+    - duration of RR
+    - duration of query(s) in RR
+    - activity inside RR
+    - activity in side Qry-in-RR
+   

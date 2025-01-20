@@ -128,8 +128,8 @@ BEGIN
   RAISE NOTICE 'ybx_get_datb() elapsed : % ms'     , duration_ms ;
 
   cmmnt_txt :=  'get_datb: from new: ' || n_datb_new
-                    || ', from_log: '  || n_datb_log
-                    || ', from upd: '  || n_datb_upd || '.';
+                    || ', from_log: '  || n_datb_log || '.';
+                 -- || ', from upd: '  || n_datb_upd || '.';
   
   insert into ybx_log ( logged_dt, host,       component,     ela_ms,      info_txt )
          select clock_timestamp(), ybx_get_host(), 'ybx_get_datb', duration_ms, cmmnt_txt ;
