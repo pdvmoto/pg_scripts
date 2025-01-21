@@ -747,6 +747,7 @@ where  relname like 'ybx_univ%'
     or relname like 'ybx_sess%'
     or relname like 'ybx_qury%'
     or relname like 'ybx_tblt%'
+    or relname like 'ybx_rrqs%'
     or relname like 'ybx_ashy%'
 )
 order by i.oid, i.relname ; 

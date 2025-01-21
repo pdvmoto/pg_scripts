@@ -24,4 +24,113 @@ start with:
     - duration of query(s) in RR
     - activity inside RR
     - activity in side Qry-in-RR
-   
+  
+questions
+
+q1: how to know for certain that a rr is finished.. 
+    (no new ash since last sample..?) 
+    (session is over...)
+
+q2: try smaller interval, catch more events? 
+
+
+issue..
+
+Identify or eliminate "Idle" events in ASH, notably from cron launcher.
+
+Looking for a way to identify "Idle" events in yb_active_session_history. 
+Idle, in this case meaning events (ash-records) that do not represent active- or active-waiting- states of a process and thus consume few resources. 
+Notably I found a lot of ASH-records coming from the cron-launcher with query_id=7 or query_id=5 (in my case, detected on an otherwise idle system).
+
+In some instances, 80+ percent of the ash_records were query_id=7, coming from the cron-launcher (identified by pid). On an idle system, ash-inspection seems to identify cron as "consuming activity"
+
+This leads me to a more general question: Identify or Eliminate "Idle" event.
+
+
+Version tested/detected: 
+PostgreSQL 15.2-YB-2.25.0.0-b0 on x86_64-pc-linux-gnu, compiled by clang version 17.0.6 (https://github.com/yugabyte/llvm-project.git 9b881774e40024e901fc6f3d313607b071c08631), 64-bit
+
+Some queries I used to detect..
+
+
+-- query_id 7 is a sizable percentage of ASH, 
+-- even on a rather idle system.
+select  count(*)  total_ash
+, sum ( case query_id when 7 then 1 else 0 end )as  nr_of_sevens
+from yb_active_session_history ash ;
+
+-- the query_id=7 seem to come from just 1 pid,
+-- pg_stat and ps -ef show that pid to be the pg_cron launcher (in my case)
+select pid which_pid, count (*) nr_sevens
+from yb_active_session_history
+where query_id = 7 
+group by pid; 
+
+
+-- which app is doing the sevens
+select pid, application_name 
+from pg_stat_activity 
+where pid in  ( select pid 
+                 from yb_active_session_history 
+                where query_id = 7 
+              );
+
+-- mostly "Extension", occasionally also other waits.. 
+select ash.wait_event, ash.wait_event_class , ash.wait_event_type
+, count (*)
+--, ash.*
+from yb_active_session_history  ash
+where ash.query_id = 7 
+group by 1, 2, 3;
+order by ash.sample_time desc;
+
+
+-- occuring one every second, e.g. every sample of ash?
+select to_char ( ash.sample_time, 'HH24:MI:SS' ) as the_secnd, ash.pid, ash.sample_time, ash.wait_event
+--, ash.* 
+from yb_active_session_history ash
+where ash.query_id = 7 
+order by sample_time;
+
+-- the same pid (cron?) Does seem to do Other queries a well,
+-- notably query_id=5
+select to_char ( ash.sample_time, 'HH24:MI:SS' ) as the_second
+, ash.pid, ash.query_id, ash.wait_event
+--, ash.* 
+from yb_active_session_history ash
+where ash.pid  in  ( select pid   -- any pid that has ever done a 7
+                 from yb_active_session_history 
+                where query_id = 7 
+              )
+  and ash.query_id != 7           -- but only show the non-7 records
+order by sample_time desc ;
+
+
+ASH: description of special query_id in a view yb_query_desc 
+
+In the view yb_active_session_history there is specific set of query_ids that describe yb-activity.
+The meaning of which I found here:
+https://docs.yugabyte.com/preview/explore/observability/active-session-history/#constant-query-identifiers
+
+Since 15.2-YB-2.25.0.0-b0, I found there are also id=0 and id-7 (coming from cron-extension"?).
+
+Suggetion is to include a view with the descriptions of those queries:
+
+A View to identify special values for query_id in ASH
+
+The ASH view contains special values to identify yugabyte-specific activity, notably values 0..7.
+
+note: I have not (yet?) spotted those values in pg_stat_acivity or pg_stat_statements
+
+The translation of those values can currently (Jan-2025) be found here..
+https://docs.yugabyte.com/preview/explore/observability/active-session-history/#constant-query-identifiers
+
+Suggeston is to put those in a table or view for lookup or reference inside ybdb.
+Similar to yb_wait_event_desc
+
+My current solution is :
+
+
+
+
+
