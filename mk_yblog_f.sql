@@ -802,7 +802,8 @@ where not exists ( select 'x' from ybx_ashy_log b
                    and   b.rpc_request_id  = coalesce ( a.rpc_request_id, 0 )
                    and   b.wait_event      = a.wait_event
                    -- and   b.sample_time > ( start_dt - make_interval ( secs=>900 ) )
-                 );
+                 )
+  and not ( a.wait_event = 'Extension' and query_id in ( 5, 7) ) ;
 
 GET DIAGNOSTICS n_ashrecs := ROW_COUNT;
 retval := retval + n_ashrecs ;
@@ -897,24 +898,26 @@ $$
 select ybx_get_datb ();
 
 select * from ybx_datb_mst ; 
-select * from ybx_datb_log order by log_dt desc limit 1; 
+select log_dt, datid, numbackends from ybx_datb_log order by log_dt desc limit 3; 
 
 select ybx_get_qury ();
-select * from ybx_qury_mst order by log_dt desc limit 1; 
+select log_dt, queryid
+,  substr ( replace ( query, chr(10), ' '), 1, 50)  as Query
+from ybx_qury_mst order by log_dt desc limit 1; 
 
 select ybx_get_sess ();
-select * from ybx_sess_mst order by backend_start desc limit 3; 
-select * from ybx_sess_log order by backend_start desc limit 3; 
+select app_name, host, pid, backend_start from ybx_sess_mst order by backend_start desc limit 3; 
+select sess_id,  log_dt, wait_event       from ybx_sess_log order by backend_start desc limit 3; 
 
 select ybx_get_ashy ();
-select * from ybx_ashy_log order by sample_time desc limit 3; 
+select host, sample_time, wait_event from ybx_ashy_log order by sample_time desc limit 3; 
 
 select ybx_get_tblt() ;
-select * from ybx_tblt_mst limit 4; 
-select * from ybx_tblt_rep limit 4; 
+select tabl_uuid, tblt_uuid, log_dt from ybx_tblt_mst order by log_dt desc limit 4; 
+select tsrv_uuid, tblt_uuid, log_dt from ybx_tblt_rep order by log_dt desc limit 4; 
 
 select ybx_get_evnt() ;
-select * from ybx_evnt_mst limit 4; 
+select wait_event, log_dt from ybx_evnt_mst order by log_dt desc limit 4; 
 
 \set ECHO none 
 

@@ -55,6 +55,7 @@
 
 -- yugabyte and postgres:
 select '\set PROMPT1 '' %n @ %/ @ '
+|| pg_backend_pid() || '-'
 || setting
 || ' %R> '' '
 FROM pg_settings
@@ -62,12 +63,14 @@ WHERE name='listen_addresses';
 
 -- cockroach
 select '\set PROMPT1 '' %n @ %/ @ '
+|| pg_backend_pid() || '-'
 || nodename 
 || ' %R> '' '
 from crx_vnodeinfo; 
 
 -- yugabyte and postgres:
 select '\set PROMPT1 '' %n @ %/ @ '
+|| pg_backend_pid() || '-'
 || setting
 || ' %R> '' '
 FROM pg_settings
