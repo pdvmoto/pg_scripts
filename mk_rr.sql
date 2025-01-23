@@ -3,7 +3,8 @@
 
 /*
 
-Questions: 
+Questions:
+  - do we really need rr_id ? why not stick with rr_uuid ?? (smaller, and more readable...)
   - how to determine RR is really over ? 
   - need indicator if rr still running ? e.g. found new ash on last poll ? 
   - query_id does not belong in rr, possibly only toplevel sql, 
@@ -142,19 +143,23 @@ where rm.sess_id = sm.id
 create table ybx_qurr_lnk (
   queryid   bigint
 , rr_id     bigint
+, qurr_start_dt timestamp with time zone 
 , constraint ybx_qurr_lnk_pk primary key ( queryid, rr_id ) 
 -- fk to rr,
 -- fk to qry
-) ; 
+) ;
 
-insert into ybx_qurr_lnk ( rr_id, queryid ) 
-select distinct 
+-- needs trick to find min-dt from ashy_log
+insert into ybx_qurr_lnk ( rr_id, queryid, qurr_start_dt ) 
+select /* distinct  */
   rm.id 
 , al.query_id  
+, min ( al.sample_time ) 
 from ybx_rrqs_mst rm
    , ybx_ashy_log al
 where 1=1
   and rm.rr_uuid = al.root_request_id -- assume rr is unique
+group by 1, 2
 ;
 
 
@@ -169,7 +174,7 @@ where 1=1
 --            for indent, use select 'string' || chr(10) || '  more ' ;
 select 
 from ybx_rrqs_mst rm
-where rm.root_request_id = ''::uuid
+where rm.root_request_id = '1'::uuid
 
 -- show queries for the rr..
 -- (here, some chronological orde would benefit...)

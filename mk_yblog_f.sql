@@ -432,9 +432,16 @@ BEGIN
   RAISE NOTICE 'ybx_get_sess() from act : % '     , n_sess_act ;
 
   -- get from ash, many more lines...?
-  -- but only catch those who are "local" 
+  -- should we  only catch those who are "local" 
   -- e.g. top_level_node=000 or top_level_node = local tsrv
-  -- and not exists in table yet..
+  -- => no, a node can see a sess_mst before the originating tsrv found it.. ?
+  -- ash can give us : tsrv_uuid (top_node_id), pid (on originating node, 
+  -- and min-dt(as tentative backend start), also: datid and client-info
+  -- missing is usesysid and real backend_start... 
+  -- But... if we fill in min ( sample_time ) for backend-st, 
+  -- we need a marker.. we pre-empt the correct data. so that correction IF possible
+  -- marker: usesysid unknown => needs correction from pg_stat_activit, IF Found...
+  -- where not exists in mst-table yet..
   -- option: when detecting a new combi if cl_add+port: 
   -- put tsrv+cl_add+port somewhere for later addition?
   -- but investigate via collected data in ash + activity first: 

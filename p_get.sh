@@ -1,0 +1,132 @@
+#!//bin/bash
+
+# get data from a pid, using pid as $1
+#
+# requires: complete ash-log (after finisghing) and mk_rr.sql
+#
+# todo: 
+#   - check for ash-records witout query ? 
+# 
+# 
+
+psql -h localhost -p 5433 -U yugabyte -X <<EOF
+
+\set ECHO none
+\timing off
+
+\! echo .
+\! echo -- -- -- The session for the RR -- -- -- 
+\! echo .
+
+
+select sm.id as sess_id, sm.host, sm.app_name
+, substr ( sm.client_addr || ':' || sm.client_port , 1, 25 ) as client_info
+, to_char ( sm.backend_start, 'DD HH24:MI:SS' ) sess_start
+, to_char ( sm.gone_dt      , 'DD HH24:MI:SS' ) backend_end
+, trunc ( extract ( epoch from ( sm.gone_dt - sm.backend_start ) ), 3)  as dur_secs
+from ybx_sess_mst sm
+where 1=1
+  and sm.pid = $1 
+;
+
+\! read -t5 -p "The session info" abc 
+\! read -p "The session info" abc 
+
+\! echo .
+\! echo -- -- -- time + duration of the RR into the session. -- -- -- 
+\! echo .
+
+-- possibly us \get to pick up sess_id, rr_id, rr_uuid, and sess_start
+-- then also report how long into the session this rr started 
+
+-- time + duration of the  rrs:
+select 
+  rm.id as rr_id
+, rm.rr_uuid
+, to_char ( rm.rr_min_dt , 'HH24:MI:SS' ) rr_start
+, trunc ( extract ( epoch from ( rm.rr_min_dt - sm.backend_start  ) ), 3)  as secs_in
+, trunc ( dur_ms, 3 ) as rr_duration_ms
+from ybx_rrqs_mvw rm
+   , ybx_sess_mst sm
+where rm.sess_id = sm.id
+  and sm.pid = $1 
+order by rm.rr_min_dt ; 
+;
+
+\!read -p "The the root-req from the session " abc 
+
+\! echo .
+\! echo -- -- -- Queries per RR -- -- -- 
+\! echo .
+
+select  case when ( rm.id = lag(rm.id) over ( order by ql.qurr_start_dt ) ) 
+              then null else rm.id end                      as rr_id
+      , to_char ( ql.qurr_start_dt , 'HH24:MI:SS.MS' )      as qury_started
+      , qm.queryid
+      , trunc ( extract(epoch from 
+                (ql.qurr_start_dt - lag(ql.qurr_start_dt) over (order by ql.qurr_start_dt))) * 1000
+              )                                             as dur_ms
+      , substr ( replace ( qm.query, chr(10), ' '), 1, 60)  as Query
+from ybx_rrqs_mvw rm
+   , ybx_qurr_lnk ql 
+   , ybx_qury_mst qm
+   , ybx_sess_mst sm
+where rm.id       = ql.rr_id
+  and qm.queryid  = ql.queryid
+  and sm.id       = rm.sess_id
+  and sm.pid = $1 
+order by ql.qurr_start_dt
+;
+
+\! read -p "The the root-req from the session " abc 
+
+\! echo .
+\! echo -- -- -- Events in the RR  -- -- -- 
+\! echo .
+
+select
+  to_char ( al.sample_time, ' - HH24:MI:SS.MS' ) as sample_tim
+, al.host
+, al.wait_event
+, al.query_id
+from ybx_rrqs_mvw rm
+   , ybx_ashy_log al 
+where rm.rr_uuid  = al.root_request_id
+  and rm.rr_uuid::text like '$1'|| '%' 
+order by al.sample_time
+;
+
+\! echo .
+\! echo -- -- -- Events in the pid-session  -- -- -- 
+\! echo .
+
+
+select  case when ( rm.id = lag(rm.id) over ( order by al.sample_time ) ) 
+              then null else rm.id end             as rr_id
+ -- rm.rr_uuid 
+, to_char ( al.sample_time, 'HH24:MI:SS.MS' )      as time_ms
+, case al.rpc_request_id when 0 then al.host else ' L '|| al.host end 
+|| '     ' ||        substr ( wait_event, 1, 15 )  as event
+,        substr ( wait_event_component, 1, 4)      as cmpn
+, rpad ( substr ( wait_event_type,      1, 4 ), 4) as e_tp
+,        substr ( wait_event_class,     1, 4 )     as e_cl
+, substr ( replace ( qm.query, chr(10), ' ' ), 1, 50 ) as query
+-- , al.*
+from ybx_rrqs_mst rm
+   , ybx_ashy_log al
+   , ybx_qury_mst qm
+where 1=1
+and rm.rr_uuid = al.root_request_id 
+and qm.queryid = al.query_id
+and rm.id in ( 
+  select rr.id 
+    from ybx_rrqs_mst rr
+       , ybx_sess_mst sm
+   where rr.sess_id = sm.id 
+     and sm.pid = $1
+)
+order by al.sample_time ;
+
+
+EOF
+
