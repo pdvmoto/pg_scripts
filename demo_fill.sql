@@ -34,7 +34,7 @@ create table t
 , dt                timestamp         -- some date, case we want history stuff
 , payload           varchar ( 200 )   -- some text , can be spoken word
 , filler            varchar ( 750 )  -- some data to create 1K recordsize
-) /* split into 1 tablets   */ ;
+) split into 4 tablets  ;
 
 \set ECHO none
 
@@ -51,7 +51,7 @@ select
   s.id                                     as id
 , case mod ( s.id+1, 10000 )  when 0 then 'Y' else 'N' end  as active
 , mod ( s.id, 10000 ) / 100                as amount
-, ( current_date - s.id::int  )            as dt   /* cant use bigint??i  */ 
+, ( now() )                                as dt   /* cant use bigint??i  */ 
 , rpad ( fnNumberToWords ( s.id ), 198)    as payload
 , rpad ( '[ ', 740 ) || ']'                as  filler 
 from s
@@ -86,7 +86,7 @@ begin
     s.id                                     as id
   , case mod ( s.id+1, 10000 )  when 0 then 'Y' else 'N' end  as active
   , mod ( s.id, 10000 ) / 100                as amount
-  , ( current_date - s.id::int  )            as dt   /* cant use bigint??i  */
+  , ( now ()   )            as dt   /* cant use bigint??i  */
   , rpad ( fnNumberToWords ( s.id ), 198)    as payload
   , rpad ( '[ ', 740 ) || ']'                as  filler
   from s
@@ -133,7 +133,7 @@ begin
     s.id                                     as id
   , case mod ( s.id+1, 10000 )  when 0 then 'Y' else 'N' end  as active
   , mod ( s.id, 10000 ) / 100                as amount
-  , ( current_date - s.id::int  )            as dt       /* cant use bigint??  */
+  , ( current_date  /* -  s.id::int */   )   as dt   /* cant use bigint??  */
   , rpad ( fnNumberToWords ( s.id ), 198)    as payload
   , f_rndmstr ( 740 )                        as  filler  /* make it hard to compress */
   --, txt_filler                               as  filler

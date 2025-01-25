@@ -15,9 +15,14 @@ drop view ybg_tsrv_cpu ;
 drop view ybx_logg_inf ;
 drop view ybx_wait_typ ;
 
+drop view ybx_rrqs_mvw ; 
+
 -- the tables
 
 drop table ybx_ashy_log ;
+
+drop table ybx_rrqs_mst ; 
+drop table ybx_qurr_lnk ; 
 
 drop table ybx_tblt_rep ;
 drop table ybx_tabl_log ;

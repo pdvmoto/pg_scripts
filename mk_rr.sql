@@ -5,22 +5,26 @@
 
 Questions:
   - do we really need rr_id ? why not stick with rr_uuid ?? (smaller, and more readable...)
+    -> keep the ID, it is easier to search + read
+    => later, use the first 8 chars of rr_uuid? 
   - how to determine RR is really over ? 
   - need indicator if rr still running ? e.g. found new ash on last poll ? 
-  - query_id does not belong in rr, possibly only toplevel sql, 
-    but how do we know if a running sql is toplevel?
+  - need toplevel indicator on qury_rr_lnk
   - shouldnt we includ sess_id right away ? 
   - dur(ation) : sec? ms ? float ? 
   - do we need log_host and log_dt for completeness?  => not yet, later.
   - do we need a snapshot (snap_id) ?
     to facilitate linking rr to sess and tsrv/host (as sessions come+go)
+    => not at the moment. 
+      all linking problems seem +/- solved, or un-solvable due to sampling
 
 */
 
 \timing off
 
-drop view ybx_rrqs_mvw ; 
+-- drop view ybx_rrqs_mvw ; 
 
+/* ****
    drop table ybx_rrqs_big ;
  create table ybx_rrqs_big (
   id          bigint generated always as identity primary key
@@ -73,15 +77,17 @@ select
 group by 1, 2, 3, 4, 5
 ;
  
+* ******** */
+
 -- smaller version
 -- if using this: needs a view to join relevant sess and duration-ms..
-   drop table ybx_rrqs_mst ;
+--   drop table ybx_rrqs_mst ;
  create table ybx_rrqs_mst (
-  id          bigint generated always as identity primary key
+  id          bigint  generated always as identity primary key
 , sess_id     bigint      -- sess_id, bcse tsrv+pid not unique over time
 , rr_uuid     uuid 
-, rr_min_dt   timestamp with time zone 
-, rr_max_dt   timestamp with time zone 
+, rr_min_dt   timestamptz
+, rr_max_dt   timestamptz
 -- client-info, app, ..
 -- fk to tsrv_uuid, 
 -- fk to sess_id, (implies fk to tsrv, as session is linked to tsrv?)
@@ -89,13 +95,13 @@ group by 1, 2, 3, 4, 5
 -- 
 );
 
-insert into ybx_rrqs_mst (
+insert /* rr_01 */ into ybx_rrqs_mst (
   sess_id
 , rr_uuid 
 , rr_min_dt 
 , rr_max_dt
 )
-select  
+select /* rr_01 */ 
   sm.id
 , al.root_request_id 
 , min ( al.sample_time ) 
@@ -111,10 +117,17 @@ select
    and al.pid                     = sm.pid  -- need time-frame criterium as well...!!
    and al.root_request_id::text   not like '0000%'
    and  al.sample_time > now() - interval '1 hour'
+   and not exists ( select 'x' 
+            from ybx_rrqs_mst rm
+            where rm.sess_id = sm.id
+              and rm.rr_uuid = al.root_request_id
+            -- need to build MERGE to UPDATE rrs with higher max_sample_time
+           ) 
 group by 1, 2
 ;
    
--- consider joining: database, username
+/* 
+-- need view for joining: database, username
 create or replace view ybx_rrqs_mvw as 
 select 
   sm.id           as sess_id
@@ -132,14 +145,14 @@ from ybx_rrqs_mst rm
    , ybx_sess_mst sm
 where rm.sess_id = sm.id
 ;
- 
+*/  
 
 -- now use the rr table to pick up queries per rr..
 -- later: pick min/max sample-times per node..
 -- for now: just link rr to query
 -- detailed reporting per rr can use ashy_log, order by sample-time
 
-  drop table ybx_qurr_lnk ; 
+-- drop table ybx_qurr_lnk ; 
 create table ybx_qurr_lnk (
   queryid   bigint
 , rr_id     bigint
@@ -150,15 +163,22 @@ create table ybx_qurr_lnk (
 ) ;
 
 -- needs trick to find min-dt from ashy_log
-insert into ybx_qurr_lnk ( rr_id, queryid, qurr_start_dt ) 
+insert into ybx_qurr_lnk ( rr_id, queryid, qurr_start_dt, dur_ms ) 
 select /* distinct  */
   rm.id 
 , al.query_id  
 , min ( al.sample_time ) 
+, extract ( epoch from ( max ( al.sample_time ) - min ( al.sample_time ) ) ) * 1000 as dur_ms
 from ybx_rrqs_mst rm
    , ybx_ashy_log al
 where 1=1
-  and rm.rr_uuid = al.root_request_id -- assume rr is unique
+  and rm.rr_uuid = al.root_request_id       -- assume rr is unique
+  and not exists ( select 'x'
+          from ybx_qurr_lnk ql
+          where ql.rr_id   = rm.id
+            and ql.queryid = al.query_id
+            -- need to add MERGE to UPDATE queries with higher max-sample
+          )
 group by 1, 2
 ;
 
@@ -172,9 +192,11 @@ group by 1, 2
 --          - qry (subtr 60?)
 --          - table or tablet if appropriate..
 --            for indent, use select 'string' || chr(10) || '  more ' ;
+/** 
 select 
 from ybx_rrqs_mst rm
 where rm.root_request_id = '1'::uuid
+**/
 
 -- show queries for the rr..
 -- (here, some chronological orde would benefit...)

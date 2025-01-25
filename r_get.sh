@@ -2,32 +2,6 @@
 
 # get data from a rr, using like on first part 
 
-/*
--- example query, based on PID...
-select 
- -- rm.rr_uuid 
-  to_char ( al.sample_time, 'HH24:MI:SS.MS' ) as tm
-, al.host, al.query_id, al.rpc_request_id, al.wait_event, al.wait_event_aux 
-, qm.query
-, al.*
-from ybx_rrqs_mst rm
-   , ybx_ashy_log al
-   , ybx_qury_mst qm
-where 1=1
-and rm.rr_uuid = al.root_request_id 
-and qm.queryid = al.query_id
-and rm.id in ( 
-  select rr.id 
-    from ybx_rrqs_mst rr
-       , ybx_sess_mst sm
-   where rr.sess_id = sm.id 
-     and sm.pid = 78496
-)
-order by al.sample_time ;
-
-
-*/
-
 psql -h localhost -p 5433 -U yugabyte -X <<EOF
 
 \set ECHO none

@@ -33,7 +33,13 @@ todo:
     - tblt_rep : replica per node.. , should hve role (lead/follow) and state (tombst)
     - tablet repl can have gone-dt per node.. tablet_mst: gone_dt only when tble gone.
  - Table and Ta-Ta logging ? 
-
+ - do host_mst and host_log need a snap_id? not yet..
+ - keys in general: some have id some do not.. probably tech-key-ID everywhere is better
+    notebly the _log tables bcse not always clear what is unique-combi 
+    (e.g. datb_log_host_dt, when >2 key-fiedls, or when dt, an ID is probably better)
+ - test adding masters and tservers: collect-scripts should not require manual intervention...
+ - session: needs very freq polling, OR inserttion from ASH
+ - sess_log: some info can go: belongs in master, not in log
 
 in case we need to insert tsrv_mst, use latest snap_id :
 with s as ( select max ( id ) as snap_id from ybx_snap_log )
@@ -145,12 +151,12 @@ $$ LANGUAGE sql;
 create table ybx_snap_log (
   id          bigint      generated always as identity primary key
 , log_dt      timestamp   default now ()
-, host        text        -- generated on which host
+, log_host    text        -- generated on which host
 , duration_ms bigint      -- measure time it took to log
 ) ;
 
 -- wanted to make it look better but cannot override cache flag ??
-alter sequence ybx_snap_log_id_seq cache 1 ;
+-- alter sequence ybx_snap_log_id_seq cache 1 ;
 
 -- universe.., the _log is more important.
 -- drop table ybx_univ_mst
@@ -184,7 +190,7 @@ create table ybx_univ_mst (
 -- drop table ybx_host_mst ;
 create table ybx_host_mst (
   host              text        not null  primary key
-, log_dt            timestamp             default now()
+, log_dt            timestamptz           default now()
 , log_host          text        not null  default ybx_get_host() 
 , comment_txt       text        -- any comments, for ex how this host was "detected"
 );
@@ -193,13 +199,14 @@ create table ybx_host_mst (
 create table ybx_host_log (
   id                bigint generated always as identity primary key
 , host              text        not null
-, log_dt            timestamp   default now()
+, log_dt            timestamptz default now()
 , nr_processes      int           -- possibly ps -ef | wc -l
 , master_mem        bigint        -- from 7000/memz?raw
 , tserver_mem       bigint        -- from 9000/memz?raw
 , disk_usage_mb     bigint        -- from du -sm /root/var
 , nr_local_tablets  bigint        -- possibly tsever-property
 , top_info          text          -- 2nd line of top -n2
+-- , constraint ybx_host_log_fk_mast foreign key ( host ) references ybx_host_mst ( host )
 --, constraint to mst, when host_mst is filled
 ) ;
 
@@ -216,8 +223,8 @@ create table ybx_host_log (
 , mast_uuid   uuid 
 , host        text
 , port        int
-, log_dt      timestamp with time zone default now() 
-, log_host    text      default ybx_get_host () -- informational, Which host did logging
+, log_dt      timestamptz   default now() 
+, log_host    text          default ybx_get_host () -- informational, Which host did logging
 , constraint ybx_mast_mst_pk primary key ( mast_uuid )
 , constraint ybx_mast_mst_fk_snap foreign key ( snap_id ) references ybx_snap_log ( id )
 ) ;
@@ -227,7 +234,7 @@ create table ybx_mast_log (
   snap_id     bigint  not null              -- fk to snapshot
 , mast_uuid   uuid  
 , host        text
-, log_dt      timestamp default now()
+, log_dt      timestamptz default now()     -- information only see snap_log
 , port        int
 , role        text
 , state       text
@@ -251,6 +258,7 @@ create table ybx_tsrv_mst (
 -- , fk to host? 
 ) ;
 -- serves as FK to several, notably tsrv_log, sess_mst, host, root_req, and ash?
+-- note: there is no log_host or log_dt, those come from snap_id
 
 -- on tsrv: we scrape from yb-admin, 
 -- plus all fields from yb_tservers_metrics()
@@ -260,7 +268,7 @@ create table ybx_tsrv_mst (
   snap_id     bigint    not null 
 , tsrv_uuid   uuid      not null
 , host        text
-, log_dt      timestamp default now()
+, log_dt      timestamptz default now()
 , port        int
 , hb_delay_s  int
 , status      text
@@ -283,8 +291,8 @@ create table ybx_tsrv_mst (
    , constraint ybx_tsrv_log_fk_snap foreign key ( snap_id   ) references ybx_snap_log ( id )
 -- , constraint ybx_tsrv_log_fk_host foreign key ( host      ) references ybx_host_mst ( host ) 
 ) ;
--- note: add tserver_metrics(), to this record
 -- there are no evident futher dependetns, hence no id neede as key?
+-- but it Needs snap_id to know the origin of the record (e.g. where it was logged)
 
 
 \! echo .
@@ -296,7 +304,7 @@ create table ybx_tsrv_mst (
   datid     oid not null primary key
 , datname   text
 , log_host  text                      default ybx_get_host()   -- logged at host
-, log_dt    timestamp with time zone  default now()  
+, log_dt    timestamptz               default now()  
 );
 -- key is oid, snap_id just host+dt where it was found
 
@@ -309,8 +317,8 @@ create table ybx_tsrv_mst (
   id          bigint        generated always as identity primary key
 , datid       oid           -- fk to mst
 , tsrv_uuid   uuid          default ybx_get_tsrv( ybx_get_host () ) 
+, log_dt      timestamptz   default now ()
 , log_host    text          default ybx_get_host() 
-, log_dt      timestamp with time zone    default now ()
 , numbackends   integer                  
 , xact_commit   bigint                  
 , xact_rollback bigint                  
@@ -326,7 +334,7 @@ create table ybx_tsrv_mst (
 , temp_bytes    bigint       
 , deadlocks     bigint      
 , checksum_failures       bigint 
-, checksum_last_failure   timestamp with time zone 
+, checksum_last_failure   timestamptz 
 , blk_read_time           double precision        
 , blk_write_time          double precision       
 , session_time            double precision      
@@ -391,7 +399,7 @@ create table ybx_sess_mst (
  create table ybx_sess_log (
   sess_id           bigint
 , tsrv_uuid         uuid not null   -- 
-, log_dt            timestamp with time zone default now()
+, log_dt            timestamptz default now()
 , host            text,             -- 
   datid           oid         NULL, -- 
   datname         name        NULL, -- 
@@ -407,22 +415,22 @@ create table ybx_sess_mst (
   xact_start      timestamptz NULL,
   query_start     timestamptz NULL,
   state_change    timestamptz NULL,
-  wait_event_type text NULL,
-  wait_event      text NULL,
-  state           text NULL,
-  backend_xid     xid NULL,
-  backend_xmin    xid NULL,
-  query_id        bigint NULL,
-  query           text NULL,
-  backend_type    text NULL,
-  catalog_version         int8 NULL,
-  allocated_mem_bytes     int8 NULL,
-  rss_mem_bytes   int8 NULL,
-  yb_backend_xid uuid NULL
+  wait_event_type text        NULL,
+  wait_event      text        NULL,
+  state           text        NULL,
+  backend_xid     xid         NULL,
+  backend_xmin    xid         NULL,
+  query_id        bigint      NULL,
+  query           text        NULL,
+  backend_type    text        NULL,
+  catalog_version        int8 NULL,
+  allocated_mem_bytes    int8 NULL,
+  rss_mem_bytes          int8 NULL,
+  yb_backend_xid         uuid NULL
 , constraint ybx_sess_log_pk      primary key ( sess_id, log_dt )
 , constraint ybx_sess_log_fk_sess foreign key ( sess_id ) references ybx_sess_mst ( id )
--- constr: qry_id, yb_backend_xid ?
--- datid: already in mst
+-- constr: qry_id, yb_backend_xid ? query_id and query can go if RR is implemented? 
+-- datid and lots of other info; is already in mst
 );
 
 
@@ -434,8 +442,8 @@ create table ybx_sess_mst (
 
 -- drop table ybx_qury_mst ;
  create table ybx_qury_mst (  
-  queryid     bigint not null primary key
-, log_dt      timestamp with time zone  default now()  
+  queryid     bigint        not null primary key
+, log_dt      timestamptz         default now()  
 , log_tsrv    uuid          -- default get_tsrv() consider FK, but no real need..
 , log_host    text          -- default ybx_get_host() -- just for curiousity sake
 , query       text
@@ -463,16 +471,17 @@ when 4 then '-- background: kQueryIdForRaftUpdateConsensus'
 when 5 then '-- background: kQueryIdForCatalogRequests'
 when 6 then '-- background: kQueryIdForLogBackgroundSync'
 */ 
+
 -- qury_log: is for the moment yb_pgs_stmt
 -- data from pg_stat_statement
 -- added ID bcse difficult to find working UK/PK from pg_stat_stmts
 
 -- drop table ybx_qury_log ;
  create table ybx_qury_log ( 
-  id          bigint    generated always as identity primary key
-, tsrv_uuid   uuid      not null default ybx_get_tsrv( ybx_get_host () )
-, queryid     bigint    not null
-, log_dt      timestamp with time zone not null default clock_timestamp() -- will this be unique?
+  id          bigint      generated always as identity primary key
+, tsrv_uuid   uuid        not null  default ybx_get_tsrv ( ybx_get_host () )
+, queryid     bigint      not null
+, log_dt      timestamptz not null  default clock_timestamp() -- will this be unique?
 , userid                  oid              
 , dbid                    oid             
 , toplevel                boolean        
@@ -521,15 +530,16 @@ when 6 then '-- background: kQueryIdForLogBackgroundSync'
 ) ; 
 -- qury_log is copy of pg_stat_statements
 -- fks disables for the moment.. needs collecting data in the right order!
+-- note: probably local to datid ? 
 
 -- drop table ybx_qury_pln ;
  create table ybx_qury_pln (
   id          bigint generated always as identity
-, queryid     bigint    not null
-, tsrv_uuid   uuid      not null                default ybx_get_tsrv ( ybx_get_host() ) 
-, log_dt      timestamp with time zone not null default now()
+, queryid     bigint        not null
+, tsrv_uuid   uuid          not null    default ybx_get_tsrv ( ybx_get_host() ) 
+, log_dt      timestamptz   not null    default now()
 , plan_info   text
---, constraint ybx_qury_pln_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
+-- , constraint ybx_qury_pln_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
 , constraint ybx_qury_pln_fk_qury foreign key ( queryid   ) references ybx_qury_mst ( queryid )
 ) ;
 
@@ -539,6 +549,7 @@ when 6 then '-- background: kQueryIdForLogBackgroundSync'
 \! echo .
 
 -- assume table_ID (uuid) is unique inside a cluster or universe ?
+-- note: a log_dt and gond_dt would be nice
 -- drop table ybx_tabl_mst ;
  create table ybx_tabl_mst (
   tabl_uuid       uuid primary key
@@ -552,13 +563,14 @@ when 6 then '-- background: kQueryIdForLogBackgroundSync'
 
 -- for future use...
 -- note that the log is local to a tsrv, and has log_dt as key-field
+-- would benefit from an ID 
 -- drop table ybx_tabl_log ;
  create table ybx_tabl_log (
   tabl_uuid         uuid
-, tsrv_uuid         uuid    default ybx_get_tsrv ( ybx_get_host() )
-, log_dt            timestamp with time zone default now()
+, tsrv_uuid         uuid            default ybx_get_tsrv ( ybx_get_host() )
+, log_dt            timestamptz     default now()
 , table_info        text -- log/save time-dependent info from pg_stats or pg_tables
-, constraint ybx_tabl_log_pk primary key ( tabl_uuid, tsrv_uuid, log_dt )
+, constraint ybx_tabl_log_pk primary key      ( tabl_uuid, tsrv_uuid, log_dt )
 , constraint ybx_tabl_log_fk_tabl foreign key ( tabl_uuid ) references ybx_tabl_mst ( tabl_uuid )
 -- , constraint ybx_tabl_log_fk_tsrv foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid )
 ) ;
@@ -616,7 +628,43 @@ when 6 then '-- background: kQueryIdForLogBackgroundSync'
 , constraint ybx_tata_lnk_fk_tblt foreign key ( tblt_uuid ) references ybx_tblt_mst ( tblt_uuid )
 ) ;
 
--- -- -- -- ASH -- -- -- --
+-- -- -- -- RR and ASH -- -- -- --
+
+\! echo .
+\! echo '-- -- -- -- RR, RR-QURY  and ASHY  -- -- -- -- '
+\! echo .
+
+
+-- smaller version of rr, needs views to join stuff
+-- if using this: needs a view to join relevant sess and duration-ms..
+-- drop table ybx_rrqs_mst ;
+ create table ybx_rrqs_mst (
+  id          bigint        generated always as identity primary key  -- id bcse used in FKs
+, sess_id     bigint        not null    -- sess_id, bcse tsrv+pid not unique over time
+, rr_uuid     uuid          not null
+, rr_min_dt   timestamptz
+, rr_max_dt   timestamptz
+, constraint ybx_rrqs_fk_sess foreign key ( sess_id ) references ybx_sess_mst ( id )
+-- client-info, app, .. 
+-- fk to tsrv_uuid,
+-- fk to sess_id, (implies fk to tsrv, as session is linked to tsrv?)
+-- fk to qury_mst
+--
+);
+
+-- drop table ybx_qurr_lnk ;
+ create table ybx_qurr_lnk (
+  queryid         bigint
+, rr_id           bigint
+, qurr_start_dt   timestamptz   -- min of sample_time inside RR
+, dur_ms          bigint        -- if we can find it
+, constraint ybx_qurr_lnk_pk primary key ( queryid, rr_id )
+, constraint ybx_qurr_lnk_fk_qury foreign key ( queryid ) references ybx_qury_mst ( queryid )
+, constraint ybx_qurr_lnk_fk_rrqs foreign key ( rr_id   ) references ybx_rrqs_mst ( id      )
+-- fk to rr,
+-- fk to qry
+) ;
+
 
 -- note id is PK for the moment, but comby of tsrv + sample-time is expected unique..
 -- drop table ybx_ashy_log ; 
@@ -668,6 +716,29 @@ create index ybx_ashy_log_i2 on ybx_ashy_log
 --, constraint ybx_evnt_lst_uk unique key ( wait_event_component asc, wait_event )
 --, constraint : tsrv_uuid, host ? purely informative 
 );
+
+\! echo .
+\! echo -- -- -- -- some Views to join data, or query-graphs  -- -- -- -- 
+\! echo .
+   
+-- need view for joining: database, username
+create or replace view ybx_rrqs_mvw as
+select  
+  sm.id           as sess_id
+, sm.tsrv_uuid   
+, sm.pid        
+, sm.backend_start 
+, sm.host         as host  -- should really be a join
+, rm.id           
+, rm.rr_uuid
+, rm.rr_min_dt
+, rm.rr_max_dt
+, extract ( epoch from ( rm.rr_max_dt - rm.rr_min_dt ) ) * 1000 as dur_ms
+, sm.app_name
+from ybx_rrqs_mst rm
+   , ybx_sess_mst sm
+where rm.sess_id = sm.id
+;
 
 -- view to use in grafana..  ybG..
 -- drop view ybg_tsrv_rwr; 
@@ -748,7 +819,9 @@ where  relname like 'ybx_univ%'
     or relname like 'ybx_qury%'
     or relname like 'ybx_tblt%'
     or relname like 'ybx_rrqs%'
+    or relname like 'ybx_qurr%'
     or relname like 'ybx_ashy%'
+    or relname like 'ybx_log' 
 )
 order by i.oid, i.relname ; 
 
@@ -789,6 +862,14 @@ $$ LANGUAGE sql;
 
 -- use separate file to develop functions..faster
 \i mk_yblog_f.sql
+
+\! echo .
+\! echo -- -- -- -- ASH-logging objects Created -- -- -- 
+\! echo -- 
+\! echo -- Next: do_ashloop.sh do_ash.sql, and do_snap.sh on Each Node
+\! echo -- 
+\! echo -- -- -- -- -- -- ASH-logging -- -- -- -- -- 
+\! echo .
 
 -- exit here, notes below.....
 \q
