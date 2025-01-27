@@ -10,6 +10,9 @@
 --
 
 drop view ybx_rrqs_mvw ;
+drop view ybx_wait_typ ;
+drop view ybg_tsrv_cpu ; 
+drop view ybg_tsrv_rwr ; 
 
 drop table ybx_ashy_log ; 
 
@@ -37,8 +40,6 @@ drop table ybx_univ_log ;
 
 drop table ybx_datb_log ; 
 -- drop table ybx_datb_mst ; 
-
-
 
 drop table ybx_qury_pln ; 
 drop table ybx_qury_mst ; 
@@ -528,11 +529,13 @@ create table ybx_qury_mst (
 , rr_uuid     uuid          not null
 , rr_min_dt   timestamptz
 , rr_max_dt   timestamptz
-, constraint ybx_rrqs_fk_sess foreign key ( sess_id ) references ybx_sess_mst ( id ) 
+, constraint ybx_rrqs_mst_fk_sess foreign key ( sess_id ) references ybx_sess_mst ( id ) 
+, constraint ybx_rrqs_mst_ui      unique      ( rr_uuid )
 -- client-info, app, ..
 -- fk to tsrv_uuid,
 -- fk to sess_id, (implies fk to tsrv, as session is linked to tsrv?)
 -- fk to qury_mst
+-- Do Not Forget: ASH needs FK to RR to make diagram complete
 --
 );
 
@@ -550,7 +553,10 @@ create table ybx_qury_mst (
 ) ;
 
 
-create table ybx_ashy_log (
+
+-- Do Not Forget: ASH needs FK to RR to make diagram complete
+-- drop table ybx_ashy_log ; 
+ create table ybx_ashy_log (
     id                    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   tsrv_uuid               uuid not null,
   host                  text NULL,
@@ -578,6 +584,8 @@ create table ybx_ashy_log (
 , constraint ybx_ashy_log_tsrv_fk foreign key ( tsrv_uuid ) references ybx_tsrv_mst ( tsrv_uuid ) 
 , constraint ybx_ashy_log_sess_fk foreign key ( sess_id   ) references ybx_sess_mst ( id ) 
 -- , constraint ybx_ashy_log_sess_fk foreign key ( client_addr, client_port ) references ybx_sess_mst ( client_addr,client_port ) 
+-- , constraint ybx_ashy_log_rrqs_fk: ASH needs FK to RR to make diagram complete
+, constraint ybx_ashy_log_rrqs_fk foreign key ( root_request_id ) references ybx_rrqs_mst ( rr_uuid) 
 ) ;
 
 

@@ -645,6 +645,7 @@ when 6 then '-- background: kQueryIdForLogBackgroundSync'
 , rr_min_dt   timestamptz
 , rr_max_dt   timestamptz
 , constraint ybx_rrqs_fk_sess foreign key ( sess_id ) references ybx_sess_mst ( id )
+, constraint ybx_rrqs_uk      unique      ( rr_uuid ) 
 -- client-info, app, .. 
 -- fk to tsrv_uuid,
 -- fk to sess_id, (implies fk to tsrv, as session is linked to tsrv?)

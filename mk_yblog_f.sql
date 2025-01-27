@@ -424,6 +424,7 @@ BEGIN
                           and a.pid                 = m.pid
                           and a.backend_start       = m.backend_start 
                           and m.gone_dt         is null -- still open, e.g. session was not terminated 
+                          -- sessions detected from ASH may already be gone..
                       ) ;
 
   GET DIAGNOSTICS n_sess_act := ROW_COUNT;
@@ -441,26 +442,33 @@ BEGIN
   -- But... if we fill in min ( sample_time ) for backend-st, 
   -- we need a marker.. we pre-empt the correct data. so that correction IF possible
   -- marker: usesysid unknown => needs correction from pg_stat_activit, IF Found...
+  -- also an option: inspect recent sess_mst, and verify 
+        - if exist earlier backend-start, merge/update to earliest backend start, 
+          remove later sessions with same pid+tsrv
   -- where not exists in mst-table yet..
   -- option: when detecting a new combi if cl_add+port: 
   -- put tsrv+cl_add+port somewhere for later addition?
   -- but investigate via collected data in ash + activity first: 
   -- do any sess get discoverd from ash-only ?
   insert /* get_sess_2 */ into ybx_sess_mst 
-        ( tsrv_uuid, host,      pid,  backend_start
+        ( tsrv_uuid         , host,      pid,   backend_start
          , client_addr
-         , client_port ) 
-  select this_tsrv,  this_host, a.pid, min(a.sample_time)
+         , client_port  
+         , datid )
+  select a.top_level_node_id,  this_host, a.pid , min(a.sample_time)
          , split_part ( client_node_ip, ':', 1 ) as client_addr
          , split_part ( client_node_ip, ':', 2 )::int as client_port
+         , a.ysql_dbid
     from yb_active_session_history a 
-    where 1=0 -- disable for the moment
+    where 1=1                                     -- disable if needed, for the moment
       and not exists ( select 'X' from ybx_sess_mst m 
-                        where this_host         = m.host
-                          and a.pid             = m.pid
-                          and m.gone_dt is null -- e.g. session was not terminated 
-                      ) 
-     group by this_tsrv, this_host, a.pid, 5, 6 ;
+                        where a.top_level_node_id   = m.tsrv_uuid
+                          and a.pid                 = m.pid
+                          -- no check on backend_start ? should be "recent", but how ?
+                          -- and m.gone_dt is null -- e.g. session was not terminated 
+                          -- sessions detected from ASH may already be gone..
+                      )
+     group by a.top_level_node_id, this_host, a.pid, 5, 6, 7 ;
 
      -- can not limit records by time, as this would lead to double-counts after 900sec 
      --  and a.sample_time >  ( now - make_interval ( secs=> 900  ) )  ;  -- limit nr records..
