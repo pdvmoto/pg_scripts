@@ -10,6 +10,7 @@
 # 
 
 OUTFILE=sess${1}.out
+OUTFILE2=sess_tree${1}.out
 
 psql -h localhost -p 5433 -U yugabyte -X <<EOF | tee $OUTFILE
 
@@ -43,7 +44,8 @@ where 1=1
 
 -- time + duration of the  rrs:
 select 
-  rm.id as rr_id
+  -- rm.id as rr_id
+  substr ( rm.rr_uuid::text, 1, 8 ) rr_uuid
 , rm.rr_uuid
 , to_char ( rm.rr_min_dt , 'HH24:MI:SS' ) rr_start
 , trunc ( extract ( epoch from ( rm.rr_min_dt - sm.backend_start  ) ), 3)  as secs_in
@@ -58,13 +60,13 @@ order by rm.rr_min_dt ;
 \! read -p "The the root-req from the session " abc 
 
 \! echo .
-\! echo -- -- -- most occuring queries  -- -- -- 
+\! echo -- -- -- most occuring queries, in order of first_occurence  -- -- -- 
 \! echo .
 
 select 
         qm.queryid
       , substr ( replace ( qm.query, chr(10), ' '), 1, 60)      as Query
-      , count (*)                                               as nr_occ
+      , count (*)                                               as nr_of_rr
       , to_char ( Min ( ql.qurr_start_dt ), 'HH24:MI:SS.MS' )   as first_occ
       , sum ( ql.dur_ms )                                       as total_ms
 from ybx_rrqs_mvw rm
@@ -76,7 +78,7 @@ where rm.id       = ql.rr_id
   and sm.id       = rm.sess_id
   and sm.pid = $1 
 group by 1, 2
-order by 3
+order by 4
 ;
 
 \! echo .
@@ -106,32 +108,36 @@ order by ql.qurr_start_dt
 
 \! read -p "The the root-req from the session " abc 
 
-/* **** 
 \! echo .
-\! echo -- -- -- Events in the RR  -- -- -- 
+\! echo -- -- -- Events per RR  -- -- -- 
 \! echo .
 
 select
-  to_char ( al.sample_time, ' - HH24:MI:SS.MS' ) as sample_tim
+  substr ( rm.rr_uuid::text, 1, 8 ) as rr_uuid
+, to_char ( al.sample_time, ' - HH24:MI:SS.MS' ) as sample_tim
 , al.host
 , al.wait_event
 , al.query_id
 from ybx_rrqs_mvw rm
    , ybx_ashy_log al 
+   , ybx_sess_mst sm
 where rm.rr_uuid  = al.root_request_id
-  and rm.rr_uuid::text like '$1'|| '%' 
+  and rm.sess_id  = sm.id
+  and sm.pid = $1
 order by al.sample_time
 ;
 
-****** */ 
 
 \! echo .
 \! echo -- -- -- Events in the pid-session  -- -- -- 
 \! echo .
 
 
-select  case when ( rm.id = lag(rm.id) over ( order by al.sample_time ) ) 
-              then null else rm.id end             as rr_id
+select  
+-- case when ( rm.id = lag(rm.id) over ( order by al.sample_time ) ) 
+--      then null else rm.id end             as rr_id
+  case when ( rm.rr_uuid = lag(rm.rr_uuid) over ( order by al.sample_time ) ) 
+       then null else substr ( rm.rr_uuid::text, 1, 8 ) end  as rr_uuid
  -- rm.rr_uuid 
 , to_char ( al.sample_time, 'HH24:MI:SS.MS' )      as time_ms
 , case al.rpc_request_id when 0 then al.host else ' L '|| al.host end 
@@ -159,11 +165,23 @@ and rm.id in (
 )
 order by al.sample_time ;
 
+select ' p_get.sh: end of first part, wait for 2nd... ' msg ; 
+
+-- generate tree-shaped output
+
+truncate table ybx_tmp_out; -- tmp-table, blunt approach..
+
+select ybx_evnt_ppid ( $1 ) ;
+
+-- show, and spool to file
+select output from ybx_tmp_out where ltrim ( output)  != ''  order by id ;
+
 \q
 
 EOF 
 
+
 echo .
-echo Results in $OUTFILE
+echo Results in $OUTFILE and $OUTFILE2 
 echo .
 
