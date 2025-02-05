@@ -22,6 +22,7 @@ alter database yugabyte set yb_enable_base_scans_cost_model to true;
 /* */ 
 
 \echo function from jim nicely to get tableid
+
 CREATE OR REPLACE FUNCTION get_table_id(schema_name_p VARCHAR, table_name_p VARCHAR) RETURNS VARCHAR
 AS $$
 SELECT '0000' || lpad(to_hex(d.oid::int), 4, '0') || '00003000800000000000' || lpad(to_hex(c.oid::int), 4, '0') tableid

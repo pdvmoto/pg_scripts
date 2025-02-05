@@ -41,6 +41,22 @@ todo:
  - session: needs very freq polling, OR inserttion from ASH
  - sess_log: some info can go: belongs in master, not in log
 
+Questions, notably on RR:
+  - do we really need rr_id ? why not stick with rr_uuid ?? (smaller, and more readable...)
+    -> keep the ID, it is easier to search + read
+    => later, use the first 8 chars of rr_uuid?
+  - how to determine RR is really over ?
+  - need indicator if rr still running ? e.g. found new ash on last poll ?
+  - need toplevel indicator on qury_rr_lnk
+  - shouldnt we includ sess_id right away ?
+  - dur(ation) : sec? ms ? float ?
+  - do we need log_host and log_dt for completeness?  => not yet, later.
+  - do we need a snapshot (snap_id) ?
+    to facilitate linking rr to sess and tsrv/host (as sessions come+go)
+    => not at the moment.
+      all linking problems seem +/- solved, or un-solvable due to sampling
+
+
 in case we need to insert tsrv_mst, use latest snap_id :
 with s as ( select max ( id ) as snap_id from ybx_snap_log )
 insert into ybx_tsrv_mst ( snap_id, host, tsrv_uuid ) 
@@ -53,7 +69,8 @@ where snap_id = s.snap_id ;
 drop stmts in case needed, separate file
 
 the order of drop is important..
--- - */
+-- - 
+*/
 
 -- drop table ybx_kvlog ; 
 -- drop table ybx_intf ; 
@@ -61,9 +78,8 @@ the order of drop is important..
 
 \i mk_yblog_d.sql
 
- */
-
 \! read -t 10 -p "droppings done, now to create helper-functions and tables :" 
+
 
 \! echo '-- -- -- -- HELPER FUNCTIONS stay with tables.. -- -- -- --'
     
@@ -433,6 +449,24 @@ create table ybx_sess_mst (
 -- datid and lots of other info; is already in mst
 );
 
+/* ****  
+
+\! echo .
+\! echo -- -- -- -- RootRequest and link to Qry..
+\! echo .
+
+-- drop table ybx_qurr_lnk ;
+create table ybx_qurr_lnk (
+  queryid   bigint
+, rr_id     bigint
+, qurr_start_dt timestamp with time zone
+, constraint ybx_qurr_lnk_pk primary key ( queryid, rr_id )
+-- fk to rr,
+-- fk to qry
+) ;
+
+****** */ 
+
 
 \! echo .
 \! echo '-- -- -- -- QUERY and LOG -- -- -- -- '
@@ -634,6 +668,26 @@ when 6 then '-- background: kQueryIdForLogBackgroundSync'
 \! echo '-- -- -- -- RR, RR-QURY  and ASHY  -- -- -- -- '
 \! echo .
 
+/* 
+-- smaller version
+-- if using this: needs a view to join relevant sess and duration-ms..
+--   drop table ybx_rrqs_mst ;
+ create table ybx_rrqs_mst (
+  id          bigint  generated always as identity primary key
+, sess_id     bigint      -- sess_id, bcse tsrv+pid not unique over time
+, rr_uuid     uuid
+, rr_min_dt   timestamptz
+, rr_max_dt   timestamptz
+, constraint ybx_rrqs_mst_uk unique ( rr_uuid )
+-- client-info, app, : use view
+-- fk to tsrv_uuid,
+-- , constraint FK to session
+-- fk to sess_id, (implies fk to tsrv, as session is linked to tsrv?)
+-- fk to qury_mst: via ybx_qurr_lnk
+--
+); 
+
+*/ 
 
 -- smaller version of rr, needs views to join stuff
 -- if using this: needs a view to join relevant sess and duration-ms..

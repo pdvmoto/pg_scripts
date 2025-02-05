@@ -443,8 +443,8 @@ BEGIN
   -- we need a marker.. we pre-empt the correct data. so that correction IF possible
   -- marker: usesysid unknown => needs correction from pg_stat_activit, IF Found...
   -- also an option: inspect recent sess_mst, and verify 
-        - if exist earlier backend-start, merge/update to earliest backend start, 
-          remove later sessions with same pid+tsrv
+        -- if exist earlier backend-start, merge/update to earliest backend start, 
+        -- remove later sessions with same pid+tsrv
   -- where not exists in mst-table yet..
   -- option: when detecting a new combi if cl_add+port: 
   -- put tsrv+cl_add+port somewhere for later addition?

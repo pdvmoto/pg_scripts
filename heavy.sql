@@ -12,8 +12,9 @@ select :this_pid as thispid ;
 -- without the sleep, it does not seem to "stay visible" long enough to get ash-ed
 -- but the queries die appear in pg_stat_statements (verify!)
 select /* slow03 fnctns */ 
-  fn_cnt_i ( 't_xxl') as t_xxl_cnt
+  fn_cnt_i ( 't_xxl' ) as t_xxl_cnt
 , fn_cnt_i ( 't_lll' ) as t_lll_cnt  
+, fn_cnt_i ( 't_fff' ) as t_fff_cnt  
 , fn_cnt_i ( 't' ) as t_cnt 
 , pg_sleep ( 2)  ; 
 

@@ -15,7 +15,7 @@ select /* funny01 */ substr ( t.payload, 800, 2) as pl
 , sm.backend_start
 , count ('x') cnt
 , min ( qm.log_dt ) q_dt
-from  t_rnd t 
+from  t128 t 
     , ybx_ashy_log al
     , ybx_sess_mst sm
     , ybx_qury_mst qm

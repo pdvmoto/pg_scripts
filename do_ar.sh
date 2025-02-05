@@ -10,6 +10,9 @@
 #
 # fill two timestamps with first and last timestamp to report between
 #
+# todo
+#   - distinguish datbabases: yugabyte, postgres, scott... 
+#   - more focus on PID and Query_id
 #
 # todo: find longest running sql from timing of root_req ...
 # select a.root_request_id, a.query_id

@@ -1,13 +1,16 @@
 
 -- queries to collect rr_ids, and their related data: rr_qry, session..
+-- need this to fill RR (ybcx_rrqs_mst) and RR-QL (ybx_qurr_lnk) 
+-- before running display-functions in p_get.sh <pid>
 
 /*
 
 Questions:
-  - do we really need rr_id ? why not stick with rr_uuid ?? (smaller, and more readable...)
+  - do we really need rr_id ? why not stick with rr_uuid ?? 
     -> keep the ID, it is easier to search + read
     => later, use the first 8 chars of rr_uuid? 
   - how to determine RR is really over ? 
+  - ghost-sm: come from detecting sess from ash, need to fix doubles..
   - need indicator if rr still running ? e.g. found new ash on last poll ? 
   - need toplevel indicator on qury_rr_lnk
   - shouldnt we includ sess_id right away ? 
@@ -20,64 +23,12 @@ Questions:
 
 */
 
-\timing off
+\timing on
 
 -- drop view ybx_rrqs_mvw ; 
 
-/* ****
-   drop table ybx_rrqs_big ;
- create table ybx_rrqs_big (
-  id          bigint generated always as identity primary key
-, sess_id     bigint      -- sess_id, bcse tsrv+pid not unique over time
-, tsrv_uuid   uuid
-, pid         bigint 
-, host        text        -- just information: host where top-id originates
-, rr_uuid     uuid 
-, rr_min_dt   timestamp with time zone 
-, rr_max_dt   timestamp with time zone 
-, dur_ms      bigint  -- optional, diff between max/min.
--- client-info, app, ..
--- fk to tsrv_uuid, 
--- fk to sess_id, (implies fk to tsrv, as session is linked to tsrv?)
--- fk to qury_mst
--- 
-);
-
-
-insert into ybx_rrqs_big (
-  sess_id
-, tsrv_uuid
-, pid     
-, host   
-, rr_uuid 
-, rr_min_dt 
-, rr_max_dt
-, dur_ms  
-)
-select  
-  sm.id
-, al.top_level_node_id 
-, sm.pid
-, sm.host
-, al.root_request_id 
-, min ( al.sample_time ) 
-, max ( al.sample_time ) 
-, extract ( epoch from ( max ( al.sample_time ) - min ( al.sample_time ) ) ) * 1000 as dur_ms
--- , count ( distinct top_level_node_id ) cnt_top_node
--- , count (distinct pid ) cnt_pid
--- , count ( distinct query_id ) qry
--- , count ( distinct sample_time ) cnt_smpl
- from ybx_ashy_log al 
-    , ybx_sess_mst sm
- where  1=1
-   and al.top_level_node_id       = sm.tsrv_uuid
-   and al.pid                     = sm.pid  -- need time-frame criterium as well...!!
-   and al.root_request_id::text   not like '0000%'
-   and  al.sample_time > now() - interval '1 hour'
-group by 1, 2, 3, 4, 5
-;
- 
-* ******** */
+delete from ybx_qurr_lnk ; 
+delete from ybx_rrqs_mst ; 
 
 -- smaller version
 -- if using this: needs a view to join relevant sess and duration-ms..
@@ -88,12 +39,16 @@ group by 1, 2, 3, 4, 5
 , rr_uuid     uuid 
 , rr_min_dt   timestamptz
 , rr_max_dt   timestamptz
--- client-info, app, ..
+, constraint ybx_rrqs_mst_uk unique ( rr_uuid ) ; 
+-- client-info, app, : use view
 -- fk to tsrv_uuid, 
+-- , constraint FK to session
 -- fk to sess_id, (implies fk to tsrv, as session is linked to tsrv?)
--- fk to qury_mst
+-- fk to qury_mst: via ybx_qurr_lnk
 -- 
 );
+
+alter table ybx_rrqs_mst add constraint ybx_rrqs_mst_uk unique ( rr_uuid ) ; 
 
 insert /* rr_01 */ into ybx_rrqs_mst (
   sess_id
@@ -116,7 +71,8 @@ select /* rr_01 */
    and al.top_level_node_id       = sm.tsrv_uuid
    and al.pid                     = sm.pid  -- need time-frame criterium as well...!!
    and al.root_request_id::text   not like '0000%'
-   and  al.sample_time > now() - interval '1 hour'
+   and  al.sample_time            > now() - interval '1 hour'
+   and sm.usesysid is not null     -- no ghosts, resolve this by detecting PID from ASH
    and not exists ( select 'x' 
             from ybx_rrqs_mst rm
             where rm.sess_id = sm.id
@@ -125,7 +81,11 @@ select /* rr_01 */
            ) 
 group by 1, 2
 ;
-   
+
+\! echo .
+\! echo -- inserted RRs -- 
+\! echo .
+
 /* 
 -- need view for joining: database, username
 create or replace view ybx_rrqs_mvw as 
@@ -182,6 +142,10 @@ where 1=1
 group by 1, 2
 ;
 
+\! echo .
+\! echo -- inserted RR_Query_linkss -- 
+\! echo .
+
 
 -- now we can run a time-ordered list of activities per RR:
 
@@ -207,6 +171,4 @@ where rm.root_request_id = '1'::uuid
 -- query (first part of sql)
 -- event
 -- tablet [+table] if appropriate
-
-
 

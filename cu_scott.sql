@@ -26,4 +26,3 @@ grant all on schema     scott       to scott with grant option ;
 \i mk_fcnt.sql
 
 
-
