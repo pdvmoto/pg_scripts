@@ -116,8 +116,10 @@ DECLARE
   cmmnt_txt     text              := 'Event found ' ;
 BEGIN
 
-cmmnt_txt := 'testing cron on: ' || hostnm
-                 || ', at: ' || start_dt::text ;
+cmmnt_txt := 'testcron on: ' || hostnm
+                 || ', at: ' || start_dt::text 
+                 || ', version: ' || split_part ( version(), ' ', 2 ) 
+                 || '.' ;
 
 -- select pg_sleep ( 1 ) into retval ;
 

@@ -143,7 +143,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5433,localhost:5434?con
   limit 40;
 
   \! echo .
-  \! echo now the busiest tablets per host.
+  \! echo now the busiest tablets per host. (skip when slow)
   \! echo .
   with intv as  /* q06 busiest tablets and tables */
   ( select  to_timestamp ( :from_ep ) as first_dt
@@ -159,7 +159,7 @@ ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5433,localhost:5434?con
      , ybx_tblt_mst  tb
      , ybx_tsrv_mst  tm
      , intv      i
-  where 1=1
+  where 1=0
   and   a.sample_time         between i.first_dt and i.last_dt
   and   substr ( replace ( tb.tblt_uuid::text, '-', '' ) , 1, 15 ) 
                               = a.wait_event_aux

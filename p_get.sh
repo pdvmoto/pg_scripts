@@ -14,6 +14,7 @@ OUTFILE2=sess_tree${1}.out
 
 psql -h localhost -p 5433 -U yugabyte -X <<EOF | tee $OUTFILE
 
+\timing on
 
 drop table ybx_rore_mst ; 
 create temporary table ybx_rore_mst (
