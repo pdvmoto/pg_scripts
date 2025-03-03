@@ -21,7 +21,8 @@ select count (*) nr_local_tablets from yb_local_tablets ;
 
 \! echo "create table ( id bigint primary key, payload text ) split into 128 tablets ; " 
 \echo  all
-create table t128 ( id bigint primary key, payload text ) split into 128 tablets ; 
+create table t64 ( id bigint primary key, payload text ) split into 64 tablets ; 
+create table u64 ( id bigint primary key, payload text ) split into 64 tablets ; 
 \echo off
 
 \! echo .

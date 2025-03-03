@@ -139,7 +139,7 @@ $$
 select ybx_testcron ( ) as testcron ;
 
 -- schedule a test job..
-select cron.schedule ('*/3 * * * *', $$ select ybx_testcron(); $$)
+select cron.schedule ('*/6 * * * *', $$ select ybx_testcron(); $$)
 where not exists ( select 'x' from cron.job j where j.command like '%ybx_testcron%' );
 
 select * from cron.job ;

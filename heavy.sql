@@ -1,6 +1,9 @@
 
 \set ECHO all
 
+SET application_name = 'heavy.sql'
+SET ApplicationName = 'Heavy.sql'
+
 select pg_backend_pid();
 select pg_backend_pid() as this_pid \gset
 

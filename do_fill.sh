@@ -4,7 +4,7 @@
 #
 # set -v -x 
 
-# sleep, defult is 0, otherwise $1
+# sleep, defult is 1, otherwise $1
 n_sec_sleep=1
 n_sec_sleep="${1:-$n_sec_sleep}"
 
@@ -18,8 +18,8 @@ do
 
 # ysqlsh -X -h node2  <<EOF
 # psql -X <<EOF
-# psql -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?connect_timeout=2 <<EOF
-  ysqlsh -X postgresql://yugabyte@localhost:5434,localhost:5433,localhost:5432?connect_timeout=2 <<EOF
+  psql -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?application_name=fill_sh <<EOF
+--  ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5432,localhost:5434?application_name=fill_sh<<EOF
   
     \set QUIET on
     \timing off

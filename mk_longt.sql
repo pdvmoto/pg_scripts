@@ -30,6 +30,7 @@ create table t_lll (
 select relname tblname, fn_cnt_i ( relname ) num_recs, num_tablets, size_bytes /(1024*1024) mb  
 from ybx_tblinfo 
 where relname like 't\____'
+and relkind = 'r'
 order by size_bytes ; 
 
 \! read -t 5 -p "empty tables created, check size... " abc
@@ -64,6 +65,7 @@ select pg_sleep( 5 ) ;  -- give it time.
 select relname tblname, fn_cnt_i ( relname ) num_recs, num_tablets, size_bytes /(1024*1024) mb  
 from ybx_tblinfo 
 where relname like 't\____'
+and relkind = 'r'
 order by size_bytes ; 
 
 \! read -t 5 -p "inserted data, approx 10M in both tables, next insert 100K records... " abc
@@ -98,6 +100,7 @@ insert into t_spc ( payload )
 select relname tblname, fn_cnt_i ( relname ) num_recs, num_tablets, size_bytes /(1024*1024) mb  
 from ybx_tblinfo 
 where relname like 't\____'
+and relkind = 'r'
 order by size_bytes ; 
 
 \! read -t 5 -p "now about 100M in both tables ... " abc
