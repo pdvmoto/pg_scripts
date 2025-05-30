@@ -49,11 +49,11 @@ insert into t_rnd ( payload )
 
 insert into t_lll ( payload ) 
  select md5 ( random()::text::bytea  )::text
- from generate_series ( 1, 100000);
+ from generate_series ( 1, 10000);
 
 insert into t_spc ( payload ) 
  select lpad ( '', 1024 ) 
- from generate_series ( 1, 10000);
+ from generate_series ( 1, 1000);
 
 select pg_sleep( 5 ) ;  -- give it time.
 
@@ -79,7 +79,7 @@ insert into t_rnd ( payload )
      || sha512 ( random()::text::bytea  )::text
      || sha512 ( random()::text::bytea  )::text
      || sha512 ( random()::text::bytea  )::text
- from generate_series ( 1, 90000);
+ from generate_series ( 1, 9000);
 
 -- select sum ( length ( payload ) ) / (1024*1024) as rnd_payload_200M from t_rnd ;; 
 -- select pg_table_size ( 't_rnd' )  / (1024*1024) as rnd_tab_size_200M ;
@@ -90,7 +90,7 @@ insert into t_lll ( payload )
 
 insert into t_spc ( payload ) 
  select lpad ( '', 1024 ) 
- from generate_series ( 1, 90000);
+ from generate_series ( 1, 9000);
 
 -- select sum ( length ( payload ) ) / (1024*1024) as spc_payload_200M from t_spc ;; 
 -- select pg_table_size ( 't_spc' )  / (1024*1024) as spc_size_200M ;

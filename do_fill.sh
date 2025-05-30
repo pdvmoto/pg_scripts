@@ -18,7 +18,7 @@ do
 
 # ysqlsh -X -h node2  <<EOF
 # psql -X <<EOF
-  psql -X postgresql://yugabyte@localhost:5433,localhost:5434,localhost:5432?application_name=fill_sh <<EOF
+  psql -X postgresql://yugabyte@localhost:5437,localhost:5435,localhost:5436?application_name=fill_sh <<EOF
 --  ysqlsh -X postgresql://yugabyte@localhost:5433,localhost:5432,localhost:5434?application_name=fill_sh<<EOF
   
     \set QUIET on
